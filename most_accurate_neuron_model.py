@@ -109,35 +109,35 @@ def m_h_stuff(all_params, V_membrane, Ca2, init_m_h = False):
 
 	return all_params
 
-A = 6.28E-4 #area in cm^2
+A = 6.28E-1 #area in cm^2
 C = 6.28E-1 #capacitence in nF, something tells me they picked this to mostly cancel with area
 time_step = 0.05
 sim_length = 500
 sim_steps = int(sim_length/time_step)
 
 #conductance in mS/cm^2 ?
-mult = 10000
-Na_g = 12*mult
+mult = 1
+Na_g = 400*mult
 CaT_g = 0*mult
-CaS_g = 0*mult
+CaS_g = 8*mult
 A_g = 0*mult
-KCa_g = 0*mult
-Kd_g = 36*mult
-H_g = 0*mult
-leak_g = 0.3
+KCa_g = 20*mult
+Kd_g = 50*mult
+H_g = 0.04*mult
+leak_g = 0.03*mult
 
-NaReverse = 60
-KCaReverse = -72
-KdReverse = -72
+NaReverse = 50
+KCaReverse = -80
+KdReverse = -80
 AReverse = -80
 HReverse = -20
 LeakReverse = -50
 
 #volatile initialization
-V_membrane = -50
+V_membrane = -55
 Ca2 = 0.05
 CaReverse = nernst(Ca2)
-I_ext = 1
+I_ext = 0
 
 #I genuinely don't know if the time constants are meant to be constant, like yeah they should be but they are functions of V so like?
 #I think they do change bc of top of page 3 but like 
@@ -174,7 +174,9 @@ for s in range(sim_steps):
 	
 	dV = time_step*(-1*np.sum(current_sum) + I_ext - I_leak)/C
 	V_membrane += dV
+	
 	Ca2 += step_Ca2(current_sum[1], current_sum[2], Ca2)
+	
 	Vs[s] = V_membrane
 	Cas[s] = Ca2
 	ms_ot[:, s] = all_params[:, 3]
