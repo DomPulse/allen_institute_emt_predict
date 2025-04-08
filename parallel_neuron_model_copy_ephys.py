@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import load_patch_clamp_data as lpcd
 import os
 import scipy.interpolate as interp
+from sklearn.ensemble import GradientBoostingRegressor
+import pickle
 
 #taken from this bad boi https://journals.physiology.org/doi/epdf/10.1152/jn.00641.2003
 #they explicity set the membrane surface area which I should change to reflect morphology when I integrate with the Allen data
@@ -165,7 +167,13 @@ KCaReverse = -80
 KdReverse = -80
 AReverse = -80
 HReverse = -20
-LeakReverse = np.mean(kind_of_resting_potential)
+
+with open('current_best_leak_predict.pkl', 'rb') as f:
+    model = pickle.load(f)
+conduct_and_rest = np.asarray([Na_g, CaT_g, CaS_g, A_g, KCa_g, Kd_g, H_g, Leak_g, np.mean(kind_of_resting_potential)])
+conduct_and_rest = conduct_and_rest.reshape(1, -1)
+
+LeakReverse = model.predict(conduct_and_rest)
 
 #volatile initialization
 V_membrane = LeakReverse*np.ones(num_neurons)
