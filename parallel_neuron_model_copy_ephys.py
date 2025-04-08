@@ -4,6 +4,7 @@ import load_patch_clamp_data as lpcd
 import os
 import scipy.interpolate as interp
 from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
 import pickle
 
 #taken from this bad boi https://journals.physiology.org/doi/epdf/10.1152/jn.00641.2003
@@ -229,6 +230,7 @@ for s in range(sim_steps):
 	if (s%100 == 0):
 		print(s, sim_steps)
 
+all_errors = np.zeros(num_neurons)
 for n in range(num_neurons):
 	this_end = end_stops[n]
 	
@@ -256,3 +258,8 @@ for n in range(num_neurons):
 	fig.tight_layout()
 	plt.title("Voltage and Current Over Time")
 	plt.show()
+	
+	mse = mean_squared_error(copy_voltage, real_voltage)
+	all_errors[n] = mse
+
+print(np.mean(all_errors))
