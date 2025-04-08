@@ -116,12 +116,13 @@ def m_h_stuff(all_params, V_membrane, Ca2, init_m_h = False):
 
 	return all_params
 
-num_neurons = 500
+num_neurons = 15000
 A = 6.28E-4 #area in cm^2?
 C = 6.28E-1 #capacitence in nF, something tells me they picked this to mostly cancel with area
 time_step = 0.05
-sim_length = 500
+sim_length = 1000
 sim_steps = int(sim_length/time_step)
+print(sim_steps)
 
 areas = np.random.normal(A, A/10, num_neurons)
 caps = np.random.normal(C, C/10, num_neurons)
@@ -142,13 +143,13 @@ KCaReverse = -80
 KdReverse = -80
 AReverse = -80
 HReverse = -20
-LeakReverse = -50
+LeakReverse = np.random.randint(-80, -35, num_neurons)
 
 #volatile initialization
 V_membrane = -50*np.ones(num_neurons)
 Ca2 = 0.05*np.ones(num_neurons)
 CaReverse = nernst(Ca2)*np.ones(num_neurons)
-I_ext = 5*np.ones(num_neurons)
+I_ext = 0.0*np.ones(num_neurons)
 
 #I genuinely don't know if the time constants are meant to be constant, like yeah they should be but they are functions of V so like?
 #I think they do change bc of top of page 3 but like 
@@ -156,7 +157,7 @@ I_ext = 5*np.ones(num_neurons)
 all_params = np.zeros((num_neurons, 8, 9))
 for n in range(num_neurons):
 	all_params[n, :, 0] = [Na_g, CaT_g, CaS_g, A_g, KCa_g, Kd_g, H_g, Leak_g]*np.random.rand(8)
-	all_params[n, :, 1] = [NaReverse, CaReverse[n], CaReverse[n], AReverse, KCaReverse, KdReverse, HReverse, LeakReverse] #hey if anything is wrong check here I'm highly skeptical
+	all_params[n, :, 1] = [NaReverse, CaReverse[n], CaReverse[n], AReverse, KCaReverse, KdReverse, HReverse, LeakReverse[n]] #hey if anything is wrong check here I'm highly skeptical
 	all_params[n, :, 2] = [3, 3, 3, 3, 4, 4, 1, 1]
 all_params = m_h_stuff(all_params, V_membrane, Ca2, init_m_h = True)
 
@@ -191,7 +192,25 @@ for s in range(sim_steps):
 	#Cas_reverse[s] = nernst(Ca2)
 	#print(V_membrane, Ca2, dV, all_params[:, 3:5])
 
+conduct_and_rest = []
+leaks = []
 for n in range(num_neurons):
-	plt.plot(Vs[n])
-	plt.title('voltage')
-	plt.show()
+	#plt.plot(Vs[n])
+	#plt.title('voltage')
+	#plt.show()
+	
+	if(np.max(Vs[n]) < 0):
+		uumm = []
+		for p in all_params[n, :, 0]:
+			uumm.append(p) #conductances
+		uumm.append(Vs[n, sim_steps-1]) #rest
+		conduct_and_rest.append(uumm)
+		leaks.append(all_params[n, 7, 1])
+		print(all_params[n, :, 0], all_params[n, 7, 1], Vs[n, sim_steps-1])
+
+conduct_and_rest = np.asarray(conduct_and_rest)
+leaks = np.asarray(leaks)
+
+np.save('conduct_and_rest', conduct_and_rest)
+np.save('leaks', leaks)
+
