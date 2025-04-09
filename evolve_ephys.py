@@ -147,7 +147,7 @@ def derived_ephys_props(volts_over_time, kind_of_time_step, expected_mean_volt =
 
 def mutate(baby_param):
 	for i in range(8):
-		baby_param[i, 0] = np.max([np.random.normal(baby_param[i, 0], np.abs(baby_param[i, 0])/10), 0])
+		baby_param[i, 0] = np.max([np.random.normal(baby_param[i, 0], 0.01 + np.abs(baby_param[i, 0])/10), 0])
 	baby_param[7, 1] = np.random.normal(baby_param[7, 1], np.abs(baby_param[7, 1])/10)
 	return mutant
 
@@ -177,11 +177,13 @@ files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folde
 all_times, all_currents, all_volts, orginal_lengths = lpcd.give_me_the_stuff(folder_path, files)
 
 epochs = 1000
-num_neurons = 1500
+stabilize_time = 200
+num_neurons = 500
 time_step = 0.05
 sim_length = np.max(all_times)
 ephys_time_step = sim_length/(len(all_times[0]))
 sim_steps = int(sim_length/time_step)
+stable_steps = int(stabilize_time/time_step)
 
 end_stops = []
 kind_of_resting_potential = []
@@ -211,15 +213,15 @@ CaS_g = 10*mult
 A_g = 50*mult
 KCa_g = 25*mult
 Kd_g = 125*mult
-H_g = 0.5*mult
-Leak_g = 0.5*mult
+H_g = mult
+Leak_g = mult
 
 NaReverse = 50
 KCaReverse = -80
 KdReverse = -80
 AReverse = -80
 HReverse = -20
-LeakReverse = np.random.randint(-70, -40, num_neurons)
+LeakReverse = np.random.randint(-100, -40, num_neurons)
 
 all_time_max_error = 1000
 for e in range(epochs):
@@ -249,6 +251,26 @@ for e in range(epochs):
 	current_names = ['leak', 'Na', 'CaT', 'CaS', 'A', 'KCa', 'Kd', 'H']
 	currents = np.zeros((num_neurons, 8, sim_steps))
 	
+	#running it for some time before the main sim so that it can stabilize
+	#inefficent but more realistic
+	for s in range(stable_steps):
+
+		all_params = m_h_stuff(all_params, V_membrane, Ca2)
+		
+		for index in range(len(all_params[0])):
+			if index < 4:
+				all_params[:, index, 4] += time_step*(all_params[:, index, 6] - all_params[:, index, 4])/all_params[:, index, 8]
+			all_params[:, index, 3] += time_step*(all_params[:, index, 5] - all_params[:, index, 3])/all_params[:, index, 7]
+			
+		current_sum = np.zeros((num_neurons, 8))
+		for index in range(len(all_params[0])):
+			current_sum[:, index] = (current_contrib(areas, V_membrane, all_params[:, index, 1], all_params[:, index, 0], all_params[:, index, 3], all_params[:, index, 2], all_params[:, index, 4]))
+		
+		dV = time_step*(-1*np.sum(current_sum, axis = 1) + I_ext)/C
+		V_membrane += dV
+		
+		Ca2 += step_Ca2(current_sum[:, 1], current_sum[:, 2], Ca2)
+
 	
 	for s in range(sim_steps):
 		current_time = s*time_step
@@ -282,35 +304,7 @@ for e in range(epochs):
 	
 	all_errors = np.zeros(num_neurons)
 	for n in range(num_neurons):
-		'''
-		this_end = end_stops[n]
-		
-		time = all_times[n, :this_end]
-		current = all_currents[n, :this_end]
-		real_voltage = all_volts[n, :this_end]
-		arr2_interp = interp.interp1d(np.arange(Vs[n].size),Vs[n])
-		copy_voltage = arr2_interp(np.linspace(0,Vs[n].size-1, all_times[n].size))[:this_end]	
-		
-		
-		fig, ax1 = plt.subplots(figsize=(10, 5))
-		
-		# Plot voltage
-		ax1.set_xlabel('Time (ms)')
-		ax1.set_ylabel('Voltage (mV)')
-		ax1.plot(time, real_voltage, label="real voltage", color = [0, 0, 1])
-		ax1.plot(time, copy_voltage, label="copy voltage", color = [0, 1, 0])
-		ax1.tick_params(axis='y')
-		
-		# Create second y-axis for current
-		ax2 = ax1.twinx()
-		ax2.set_ylabel('Current (nA)')
-		ax2.plot(time, current, label="injected current", color = [1, 0, 0])
-		ax2.tick_params(axis='y')
-		
-		fig.tight_layout()
-		plt.title("Voltage and Current Over Time")
-		plt.show()
-		'''
+
 		this_neuron_answer = derived_ephys_props(Vs[n], time_step)
 		
 		try:
@@ -321,6 +315,19 @@ for e in range(epochs):
 		
 	if np.max(all_errors) > all_time_max_error:
 		all_time_max_error = np.max(all_errors)
+	
+	min_idx = np.argmin(all_errors)
+	
+	this_end = end_stops[train_on]
+	time = all_times[train_on, :this_end]
+	real_voltage = all_volts[train_on, :this_end]
+	arr2_interp = interp.interp1d(np.arange(Vs[min_idx].size),Vs[min_idx])
+	copy_voltage = arr2_interp(np.linspace(0,Vs[min_idx].size-1, all_times[train_on].size))[:this_end]
+	
+	plt.plot(time, real_voltage, label="real voltage", color = [0, 0, 1])
+	plt.plot(time, copy_voltage, label="copy voltage", color = [0, 1, 0])
+	plt.legend()
+	plt.show()
 		
 	mean_mse = np.mean(all_errors)
 	print(e, train_on, mean_mse)
