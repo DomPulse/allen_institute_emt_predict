@@ -177,7 +177,7 @@ files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folde
 all_times, all_currents, all_volts, orginal_lengths = lpcd.give_me_the_stuff(folder_path, files)
 
 epochs = 1000
-num_neurons = 500
+num_neurons = 1500
 time_step = 0.05
 sim_length = np.max(all_times)
 ephys_time_step = sim_length/(len(all_times[0]))
@@ -221,7 +221,7 @@ AReverse = -80
 HReverse = -20
 LeakReverse = np.random.randint(-70, -40, num_neurons)
 
-
+all_time_max_error = 1000
 for e in range(epochs):
 	
 	train_on = np.random.randint(0, len(all_times)) #picks a random ephys experiment to serve as dataset
@@ -231,7 +231,7 @@ for e in range(epochs):
 	sim_length = all_times[train_on, stop_at]
 	sim_steps = int(sim_length/time_step)
 
-	V_membrane = -70*np.ones(num_neurons)
+	V_membrane = all_volts[train_on, 0]*np.ones(num_neurons) #initialize to same voltage as the neuron in this trial
 	Ca2 = 0.05*np.ones(num_neurons)
 	CaReverse = nernst(Ca2)*np.ones(num_neurons)
 	I_ext = 0.0*np.ones(num_neurons)
@@ -312,8 +312,15 @@ for e in range(epochs):
 		plt.show()
 		'''
 		this_neuron_answer = derived_ephys_props(Vs[n], time_step)
-		mse = mean_squared_error(this_right_answer, this_neuron_answer)
-		all_errors[n] = mse
+		
+		try:
+			mse = mean_squared_error(this_right_answer, this_neuron_answer)
+			all_errors[n] = mse
+		except:
+			all_errors[n] = all_time_max_error #high and arbitrary, wish i could do this smarter
+		
+	if np.max(all_errors) > all_time_max_error:
+		all_time_max_error = np.max(all_errors)
 		
 	mean_mse = np.mean(all_errors)
 	print(e, train_on, mean_mse)
