@@ -325,7 +325,7 @@ for e in range(epochs):
 	mean_mse = np.mean(all_errors)
 	print(e, train_on, mean_mse)
 	if (e%10 == 0):
-		np.save('all_params_e', all_params)
-		np.save('their_mse_e', all_errors)
+		np.save('all_params_'+str(e), all_params)
+		np.save('their_mse_'+str(e), all_errors)
 	
 	
