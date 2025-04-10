@@ -141,15 +141,15 @@ def derived_ephys_props(volts_over_time, kind_of_time_step, expected_mean_volt =
 	#kind of sort of normalized
 	peak_volt = -1*np.max(volts_over_time)/expected_mean_volt
 	sag_volt = np.min(volts_over_time)/expected_mean_volt
-	mean_voklt = np.mean(volts_over_time)/expected_mean_volt
+	mean_volt = np.mean(volts_over_time)/expected_mean_volt
 	
-	return [mean_voklt, peak_volt, sag_volt, num_spikes, mean_spike_width, first_spike_time, last_spike_time]
+	return [mean_volt, peak_volt, sag_volt, num_spikes, mean_spike_width, first_spike_time, last_spike_time]
 
 def mutate(baby_param):
 	for i in range(8):
 		baby_param[i, 0] = np.max([np.random.normal(baby_param[i, 0], 0.01 + np.abs(baby_param[i, 0])/10), 0])
 	baby_param[7, 1] = np.random.normal(baby_param[7, 1], np.abs(baby_param[7, 1])/10)
-	return mutant
+	return baby_param
 
 def death_and_sex(current_params, current_error):
 	#current as in this point in time, not current as in flow of ions
@@ -173,12 +173,13 @@ def death_and_sex(current_params, current_error):
 
 folder_path = "D:\\Neuro_Sci\\morph_ephys_trans_stuff\\fine_and_dandi_ephys\\000020\\sub-809076486\\"  # change this to your path
 folder_path = "D:\\Neuro_Sci\\morph_ephys_trans_stuff\\fine_and_dandi_ephys\\000020\\sub-599387254\\"
+folder_path = "D:\\Neuro_Sci\\morph_ephys_trans_stuff\\fine_and_dandi_ephys\\000020\\sub-716595500\\"
 files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
 all_times, all_currents, all_volts, orginal_lengths = lpcd.give_me_the_stuff(folder_path, files)
 
 epochs = 1000
 stabilize_time = 200
-num_neurons = 500
+num_neurons = 1500
 time_step = 0.05
 sim_length = np.max(all_times)
 ephys_time_step = sim_length/(len(all_times[0]))
@@ -193,37 +194,67 @@ for i in range(len(all_times)):
 	if all_currents[i, stop_at - 1] == 0:
 		kind_of_resting_potential.append(all_volts[i, stop_at - 1])
 	end_stops.append(stop_at)
-	plt.plot(all_times[i, :stop_at], all_volts[i, :stop_at])
+	fig, ax1 = plt.subplots(figsize=(10, 5))
+	ax1.set_xlabel('Time (ms)')
+	ax1.set_ylabel('Voltage (mV)')
+	ax1.plot(all_times[i, :stop_at], all_volts[i, :stop_at], label="real voltage", color = [0, 0, 1])
+	ax1.tick_params(axis='y')
+	
+	ax2 = ax1.twinx()
+	ax2.set_ylabel('Current (nA)')
+	ax2.plot(all_times[i, :stop_at], all_currents[i, :stop_at], label="injected current", color = [1, 0, 0])
+	ax2.tick_params(axis='y')
+	
+	fig.tight_layout()
+	plt.title("Voltage and Current Over Time")
 	plt.show()
+
 	right_answers.append(derived_ephys_props(all_volts[i, :stop_at], ephys_time_step))
+	
+
 	#print(derived_ephys_props(all_volts[i, :stop_at], ephys_time_step))
 end_stops = np.asarray(end_stops)
 
 A = 6.28E-4 #area in cm^2?
 C = 6.28E-1 #capacitence in nF, something tells me they picked this to mostly cancel with area
 
-areas = np.random.normal(A, A/10, num_neurons)
-caps = np.random.normal(C, C/10, num_neurons)
+#areas = np.random.normal(A, A/10, num_neurons)
+#caps = np.random.normal(C, C/10, num_neurons)
+areas = np.ones(num_neurons)*A
+caps = np.ones(num_neurons)*C
 
 #conductance in mS/cm^2 ?
 mult = 1000
-Na_g = 200*mult
+Na_g = 250*mult
 CaT_g = 12.5*mult
 CaS_g = 10*mult
 A_g = 50*mult
 KCa_g = 25*mult
 Kd_g = 125*mult
-H_g = mult
-Leak_g = mult
+H_g = 0.05*mult
+Leak_g = 0.05*mult
 
 NaReverse = 50
 KCaReverse = -80
 KdReverse = -80
 AReverse = -80
 HReverse = -20
-LeakReverse = np.random.randint(-100, -40, num_neurons)
+LeakReverse = np.random.randint(-120, -65, num_neurons)
 
 all_time_max_error = 1000
+
+V_membrane = -70*np.ones(num_neurons) #initialize to same voltage as the neuron in this trial
+Ca2 = 0.05*np.ones(num_neurons)
+CaReverse = nernst(Ca2)*np.ones(num_neurons)
+I_ext = 0.0*np.ones(num_neurons)
+	
+all_params = np.zeros((num_neurons, 8, 9))
+for n in range(num_neurons):
+	all_params[n, :, 0] = [Na_g, CaT_g, CaS_g, A_g, KCa_g, Kd_g, H_g, Leak_g]*np.random.rand(8)
+	all_params[n, :, 1] = [NaReverse, CaReverse[n], CaReverse[n], AReverse, KCaReverse, KdReverse, HReverse, LeakReverse[n]] #hey if anything is wrong check here I'm highly skeptical
+	all_params[n, :, 2] = [3, 3, 3, 3, 4, 4, 1, 1]
+all_params = m_h_stuff(all_params, V_membrane, Ca2, init_m_h = True)
+
 for e in range(epochs):
 	
 	train_on = np.random.randint(0, len(all_times)) #picks a random ephys experiment to serve as dataset
@@ -237,12 +268,7 @@ for e in range(epochs):
 	Ca2 = 0.05*np.ones(num_neurons)
 	CaReverse = nernst(Ca2)*np.ones(num_neurons)
 	I_ext = 0.0*np.ones(num_neurons)
-		
-	all_params = np.zeros((num_neurons, 8, 9))
-	for n in range(num_neurons):
-		all_params[n, :, 0] = [Na_g, CaT_g, CaS_g, A_g, KCa_g, Kd_g, H_g, Leak_g]*np.random.rand(8)
-		all_params[n, :, 1] = [NaReverse, CaReverse[n], CaReverse[n], AReverse, KCaReverse, KdReverse, HReverse, LeakReverse[n]] #hey if anything is wrong check here I'm highly skeptical
-		all_params[n, :, 2] = [3, 3, 3, 3, 4, 4, 1, 1]
+
 	all_params = m_h_stuff(all_params, V_membrane, Ca2, init_m_h = True)
 	
 	Vs = np.zeros((num_neurons, sim_steps))
@@ -312,6 +338,7 @@ for e in range(epochs):
 			all_errors[n] = mse
 		except:
 			all_errors[n] = all_time_max_error #high and arbitrary, wish i could do this smarter
+			
 		
 	if np.max(all_errors) > all_time_max_error:
 		all_time_max_error = np.max(all_errors)
@@ -328,11 +355,13 @@ for e in range(epochs):
 	plt.plot(time, copy_voltage, label="copy voltage", color = [0, 1, 0])
 	plt.legend()
 	plt.show()
-		
+	
+	
 	mean_mse = np.mean(all_errors)
 	print(e, train_on, mean_mse)
 	if (e%10 == 0):
 		np.save('all_params_'+str(e), all_params)
 		np.save('their_mse_'+str(e), all_errors)
 	
+	all_params = death_and_sex(all_params, all_errors)
 	
