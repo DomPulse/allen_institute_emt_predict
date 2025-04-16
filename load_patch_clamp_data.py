@@ -5,6 +5,10 @@ from pynwb.icephys import CurrentClampSeries, VoltageClampSeries
 from math import log10, floor
 import os
 
+#never mentioned this anywhere but 
+#https://dandiarchive.org/dandiset/000020/draft <- data download
+#https://www.youtube.com/watch?v=WLJivIn_Tls&ab_channel=NeurodataWithoutBorders <- useful tutorial 
+
 #chatGPT is bad at the actual NWB processing but great at this
 def round_to_sigfig(value, sigfig=1):
     if value == 0:
@@ -85,6 +89,16 @@ def crop_on_voltage_flatline(voltage, current, time=None, zero_thresh=1e-3, min_
     else:
         return voltage[:cutoff], current[:cutoff]
 
+def pad_to_max_length(arrays, pad_value=0):
+    original_lengths = np.array([len(sublist) for sublist in arrays])
+    max_length = original_lengths.max()
+    
+    num_arrays = len(arrays)
+    padded = np.zeros((num_arrays, max_length))
+    for i in range(num_arrays):
+        padded[i, :original_lengths[i]] = arrays[i]
+    
+    return np.array(padded), original_lengths
 
 #ok end of chatGPT code
 
@@ -92,6 +106,9 @@ def crop_on_voltage_flatline(voltage, current, time=None, zero_thresh=1e-3, min_
 
 def give_me_the_stuff(folder_path, files):
     stim_res_combo = []
+    all_times = []
+    all_currents = []
+    all_volts = []
     for nwb_path in files:
         with NWBHDF5IO(folder_path + nwb_path, 'r') as io:
             nwbfile = io.read()
@@ -121,6 +138,7 @@ def give_me_the_stuff(folder_path, files):
                               
                 if this_stim.unit == 'amperes' and this_response.unit == 'volts' and len(this_stim.data[()]) == len(this_response.data[()]):
                     
+                    print(this_stim.gain, this_response.gain)
                     stim_mag = round_to_sigfig(this_stim.conversion)
                     res_mag = round_to_sigfig(this_response.conversion)
         
@@ -130,45 +148,44 @@ def give_me_the_stuff(folder_path, files):
                     volts, current, times = crop_on_voltage_flatline(this_response.data[()], this_stim.data[()], times)
                     
                     stim_res_combo.append([times, current*stim_mag/(1E-9), volts*res_mag/(1E-3)])
+                    #stim_res_combo.append([times, current*stim_mag/(this_stim.gain), volts*res_mag/(this_response.gain)])
+                    all_times.append(times)
+                    all_currents.append(current*stim_mag/(1E-9))
+                    all_volts.append(volts*res_mag/(1E-3))
 
+    
+    all_times, original_lengths = pad_to_max_length(all_times)
+    all_currents, original_lengths = pad_to_max_length(all_currents)
+    all_volts, original_lengths = pad_to_max_length(all_volts)
                     
-    return stim_res_combo
-   
+    return all_times, all_currents, all_volts, original_lengths
 
-folder_path = "D:\\Neuro_Sci\\morph_ephys_trans_stuff\\fine_and_dandi_ephys\\000020\\sub-809076486\\"  # change this to your path
+'''
+folder_path = "D:\\Neuro_Sci\\morph_ephys_trans_stuff\\fine_and_dandi_ephys\\000020\\sub-610663891\\"
 
 files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
 
-gaming = give_me_the_stuff(folder_path, files)
+all_times, all_currents, all_volts, orginal_lengths = give_me_the_stuff(folder_path, files)
 
-for entry in gaming:
-    #plt.plot(entry[0], entry[1], label = 'nA')
-    #plt.plot(entry[0], entry[2], label = 'mV')
-    #plt.legend()
-    #plt.show()
-    
-    # Dummy data (replace with your actual data)
-    time = entry[0]
-    voltage = entry[2]
-    current = entry[1]
-    
-    fig, ax1 = plt.subplots(figsize=(10, 5))
-    
-    # Plot voltage
-    color1 = 'tab:red'
-    ax1.set_xlabel('Time (s)')
-    ax1.set_ylabel('Voltage (mV)', color=color1)
-    ax1.plot(time, voltage, color=color1, label="Voltage")
-    ax1.tick_params(axis='y', labelcolor=color1)
-    
-    # Create second y-axis for current
-    ax2 = ax1.twinx()
-    color2 = 'tab:blue'
-    ax2.set_ylabel('Current (nA)', color=color2)
-    ax2.plot(time, current, color=color2, label="Current")
-    ax2.tick_params(axis='y', labelcolor=color2)
-    
-    fig.tight_layout()
-    plt.title("Voltage and Current Over Time")
-    plt.show()
+end_stops = []
+right_answers = []
+for i in range(len(all_times)):
+	stop_at = orginal_lengths[i]-1
 
+	end_stops.append(stop_at)
+
+	fig, ax1 = plt.subplots(figsize=(10, 5))
+	ax1.set_xlabel('Time (ms)')
+	ax1.set_ylabel('Voltage (mV)')
+	ax1.plot(all_times[i, :stop_at], all_volts[i, :stop_at], label="real voltage", color = [0, 0, 1])
+	ax1.tick_params(axis='y')
+	
+	ax2 = ax1.twinx()
+	ax2.set_ylabel('Current (nA)')
+	ax2.plot(all_times[i, :stop_at], all_currents[i, :stop_at], label="injected current", color = [1, 0, 0])
+	ax2.tick_params(axis='y')
+	
+	fig.tight_layout()
+	plt.title("Voltage and Current Over Time")
+	plt.show()
+'''
