@@ -180,5 +180,8 @@ for e in range(epochs):
 		np.save('all_params_'+str(e), glob_all_params)
 		np.save('their_mse_'+str(e), all_errors)
 	
-	glob_all_params = death_and_sex(glob_all_params, all_errors, allowed)
+	try:
+		glob_all_params = death_and_sex(glob_all_params, all_errors, allowed)
+	except:
+		pass
 	
