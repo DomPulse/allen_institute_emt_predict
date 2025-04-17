@@ -46,22 +46,24 @@ def mutate(baby_param):
 	baby_param[7, 1] = np.random.normal(baby_param[7, 1], np.abs(baby_param[7, 1])/10)
 	return baby_param
 
-def death_and_sex(current_params, current_error):
+def death_and_sex(current_params, current_error, max_real_error = 500):
 	#current as in this point in time, not current as in flow of ions
 	#hey im walking here
 	#death and sex? two things im not having ;)
 	#yes i am going insane but nobody will read this let me inform you
-	max_error = np.max(current_error)
-	probs = 1 - np.exp(-1*(current_error - max_error)) #higher probs will have higher chance of being taken, lowest has a 0% chance
-	taken = probs > np.random.rand(glob_num_neurons) #are these eligible for being taken to breed?
+	das_local_num_neurons = len(current_params)
+	probs = 1 - np.exp(-1*(current_error - max_real_error)) #higher probs will have higher chance of being taken, lowest has a 0% chance
+	taken = probs > np.random.rand(das_local_num_neurons) #are these eligible for being taken to breed?
 	golden_ticket = np.random.randint(glob_num_neurons)
 	taken[golden_ticket] = 1 #at least one will always be taken, its a near statistical certainty that one will make it be in the case of extreme homogeneity and bad luck i don't want it to crash
 	new_params = 0*current_params
 	one_indices = np.where(taken == 1)[0]  # Get indices where arr == 1
-	for n in range(glob_num_neurons):
+	for n in range(das_local_num_neurons):
 		mommy_idx = np.random.choice(one_indices)
 		daddy_idx = np.random.choice(one_indices)
-		new_params[n] = np.add(current_params[mommy_idx], current_params[daddy_idx])/2
+		new_params[n] = np.add(current_params[mommy_idx], current_params[daddy_idx])
+		new_params[n] = np.multiply(new_params[n], 0.5)
+		#new_params[n] = current_params[mommy_idx]
 		new_params[n] = mutate(new_params[n])
 	
 	return new_params
@@ -73,7 +75,7 @@ all_times, all_currents, all_volts, orginal_lengths = lpcd.give_me_the_stuff(fol
 all_currents = all_currents*10 #this is complete ad hoc nonsense I don't care if it's wrong, we're 1 step away from numerology
 
 epochs = 1000
-glob_num_neurons = 1000
+glob_num_neurons = 1500
 glob_sim_length = np.max(all_times)
 glob_time_step = 0.05
 ephys_time_step = glob_sim_length/(len(all_times[0]))
@@ -109,10 +111,13 @@ for i in range(len(all_times)):
 end_stops = np.asarray(end_stops)
 
 
-all_time_max_error = 3000
+all_time_max_error = 15000
 glob_all_params, glob_V_mem, glob_Ca2, glob_areas, glob_caps = pnmf.initialize_neurons(num_neurons = glob_num_neurons)
 
 for e in range(epochs):
+	
+	glob_V_mem = np.ones(glob_num_neurons)*(70)
+	glob_Ca2 = np.ones(glob_num_neurons)*(0.05)
 	
 	train_on = np.random.randint(0, len(all_times)) #picks a random ephys experiment to serve as dataset
 	this_right_answer = right_answers[train_on]
@@ -125,8 +130,8 @@ for e in range(epochs):
 	x_new = np.linspace(0, 1, glob_sim_steps)
 	stim_current = all_currents[train_on, :stop_at]
 	exp_volt = all_volts[train_on, :stop_at]
-	template_interp_curr = interp1d(x_old, stim_current, fill_value='extrapolate')
-	template_interp_volt = interp1d(x_old, exp_volt, fill_value='extrapolate')
+	template_interp_curr = interp1d(x_old, stim_current)
+	template_interp_volt = interp1d(x_old, exp_volt)
 	interp_stim_current = template_interp_curr(x_new)
 	interp_exp_volt = template_interp_volt(x_new)
 	
@@ -153,10 +158,10 @@ for e in range(epochs):
 			all_errors[n] = mse1 + mse2
 		except:
 			all_errors[n] = all_time_max_error #high and arbitrary, wish i could do this smarter
-			
 		
-	if np.max(all_errors) > all_time_max_error:
-		all_time_max_error = np.max(all_errors)
+		if all_errors[n] > all_time_max_error:
+			all_time_max_error = all_errors[n]
+			
 	
 	min_idx = np.argmin(all_errors)
 	
@@ -174,5 +179,5 @@ for e in range(epochs):
 		np.save('all_params_'+str(e), glob_all_params)
 		np.save('their_mse_'+str(e), all_errors)
 	
-	glob_all_params = death_and_sex(glob_all_params, all_errors)
+	glob_all_params = death_and_sex(glob_all_params, all_errors, np.max(all_errors))
 	
