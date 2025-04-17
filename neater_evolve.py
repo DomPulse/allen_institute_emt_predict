@@ -46,24 +46,25 @@ def mutate(baby_param):
 	baby_param[7, 1] = np.random.normal(baby_param[7, 1], np.abs(baby_param[7, 1])/10)
 	return baby_param
 
-def death_and_sex(current_params, current_error, max_real_error = 500):
-	#current as in this point in time, not current as in flow of ions
-	#hey im walking here
-	#death and sex? two things im not having ;)
-	#yes i am going insane but nobody will read this let me inform you
-	das_local_num_neurons = len(current_params)
-	probs = 1 - np.exp(-1*(current_error - max_real_error)) #higher probs will have higher chance of being taken, lowest has a 0% chance
-	taken = probs > np.random.rand(das_local_num_neurons) #are these eligible for being taken to breed?
-	golden_ticket = np.random.randint(glob_num_neurons)
-	taken[golden_ticket] = 1 #at least one will always be taken, its a near statistical certainty that one will make it be in the case of extreme homogeneity and bad luck i don't want it to crash
+def death_and_sex(current_params, current_error, das_loc_allowed):
+
+	das_loc_num_neurons = len(current_params)
+	
+	probs = np.ones(das_loc_num_neurons) - current_error/np.max(current_error)
+	taken = probs > np.random.rand(das_loc_num_neurons) #are these eligible for being taken to breed?
+	taken = taken*das_loc_allowed
+	
+	#golden_ticket = np.random.randint(das_loc_num_neurons)
+	#taken[golden_ticket] = 1 #at least one will always be taken, its a near statistical certainty that one will make it be in the case of extreme homogeneity and bad luck i don't want it to crash
+	
 	new_params = 0*current_params
 	one_indices = np.where(taken == 1)[0]  # Get indices where arr == 1
-	for n in range(das_local_num_neurons):
+	
+	for n in range(das_loc_num_neurons):
 		mommy_idx = np.random.choice(one_indices)
 		daddy_idx = np.random.choice(one_indices)
 		new_params[n] = np.add(current_params[mommy_idx], current_params[daddy_idx])
 		new_params[n] = np.multiply(new_params[n], 0.5)
-		#new_params[n] = current_params[mommy_idx]
 		new_params[n] = mutate(new_params[n])
 	
 	return new_params
@@ -148,6 +149,7 @@ for e in range(epochs):
 	'''
 	
 	all_errors = np.zeros(glob_num_neurons)
+	allowed = np.zeros(glob_num_neurons)
 	for n in range(glob_num_neurons):
 
 		this_neuron_answer = derived_ephys_props(glob_Vs[n], glob_time_step)
@@ -156,11 +158,10 @@ for e in range(epochs):
 			mse1 = mean_squared_error(this_right_answer, this_neuron_answer)
 			mse2 = mean_squared_error(glob_Vs[n], interp_exp_volt)
 			all_errors[n] = mse1 + mse2
+			allowed[n] = 1
+			
 		except:
 			all_errors[n] = all_time_max_error #high and arbitrary, wish i could do this smarter
-		
-		if all_errors[n] > all_time_max_error:
-			all_time_max_error = all_errors[n]
 			
 	
 	min_idx = np.argmin(all_errors)
@@ -179,5 +180,5 @@ for e in range(epochs):
 		np.save('all_params_'+str(e), glob_all_params)
 		np.save('their_mse_'+str(e), all_errors)
 	
-	glob_all_params = death_and_sex(glob_all_params, all_errors, np.max(all_errors))
+	glob_all_params = death_and_sex(glob_all_params, all_errors, allowed)
 	
