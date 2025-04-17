@@ -131,7 +131,34 @@ def current_primitive(curr_prim_local_sim_steps, input_type = None, start_curren
 		
 	return current
 
+def mutate(baby_param):
+	for i in range(8):
+		baby_param[i, 0] = np.max([np.random.normal(baby_param[i, 0], 0.01 + np.abs(baby_param[i, 0])/10), 0])
+	baby_param[7, 1] = np.random.normal(baby_param[7, 1], np.abs(baby_param[7, 1])/10)
+	return baby_param
+
+def death_and_sex(current_params, current_error, max_real_error = 500):
+	#current as in this point in time, not current as in flow of ions
+	#hey im walking here
+	#death and sex? two things im not having ;)
+	#yes i am going insane but nobody will read this let me inform you
+	probs = 1 - np.exp(-1*(current_error - max_real_error)) #higher probs will have higher chance of being taken, lowest has a 0% chance
+	taken = probs > np.random.rand(glob_num_neurons) #are these eligible for being taken to breed?
+	#golden_ticket = np.random.randint(glob_num_neurons)
+	#taken[golden_ticket] = 1 #at least one will always be taken, its a near statistical certainty that one will make it be in the case of extreme homogeneity and bad luck i don't want it to crash
+	new_params = 0*current_params
+	one_indices = np.where(taken == 1)[0]  # Get indices where arr == 1
+	for n in range(glob_num_neurons):
+		mommy_idx = np.random.choice(glob_num_neurons)
+		daddy_idx = np.random.choice(glob_num_neurons)
+		new_params[n] = np.add(current_params[mommy_idx], current_params[daddy_idx])/2
+		new_params[n] = mutate(new_params[n])
+	
+	return new_params
+
 def the_old_simulator9000(sim_local_all_params, sim_local_V_mem, sim_local_Ca2, sim_local_areas, sim_local_caps, sim_length = 3000, time_step = 0.05, I_ext = None):
+	sim_local_all_params = m_h_stuff(sim_local_all_params, sim_local_V_mem, sim_local_Ca2, True)
+	
 	sim_steps = int(sim_length/time_step)
 	if I_ext is None:
 		I_ext = np.zeros(sim_steps)
@@ -160,17 +187,16 @@ def the_old_simulator9000(sim_local_all_params, sim_local_V_mem, sim_local_Ca2, 
 		sim_local_Ca2 += step_Ca2(current_sum[:, 1], current_sum[:, 2], sim_local_Ca2)*time_step
 		
 		Vs[:, s] = sim_local_V_mem[:]
-		Cas[:, s] = sim_local_Ca2[:]
 	
 	return Vs, sim_local_all_params, sim_local_V_mem, sim_local_Ca2
 
 def initialize_neurons(num_neurons = 500, area = 6.28E-4, capacitence = 6.28E-1):
-	init_local_areas = np.random.normal(area, area/10, num_neurons)
-	init_local_caps = np.random.normal(capacitence, capacitence/5, num_neurons)
+	init_local_areas = np.random.normal(area, 0, num_neurons)
+	init_local_caps = np.random.normal(capacitence, 0, num_neurons)
 	
 	#max conductance in uS/cm^2 ?
 	mult = 1000
-	Na_g = 400*mult
+	Na_g = 200*mult
 	CaT_g = 12.5*mult
 	CaS_g = 10*mult
 	A_g = 50*mult
@@ -202,16 +228,22 @@ def initialize_neurons(num_neurons = 500, area = 6.28E-4, capacitence = 6.28E-1)
 	init_local_all_params = m_h_stuff(init_local_all_params, init_local_V_mem, init_local_Ca2, init_m_h = True)
 	
 	return init_local_all_params, init_local_V_mem, init_local_Ca2, init_local_areas, init_local_caps
+
+'''
+glob_num_neurons = 100
+glob_all_params, glob_V_mem, glob_Ca2, glob_areas, glob_caps = initialize_neurons(num_neurons = glob_num_neurons)
+for i in range(100):
+
 	
-	return init_local_all_params, init_local_V_mem, init_local_Ca2
+	
+	glob_curr_prim = current_primitive(60000, 'square', 0, 0.5, 0.5, 0.75)
+	glob_Vs, glob_all_params, glob_V_mem, glob_Ca2 = the_old_simulator9000(glob_all_params, glob_V_mem, glob_Ca2, glob_areas, glob_caps)
+	glob_Vs, glob_all_params, glob_V_mem, glob_Ca2 = the_old_simulator9000(glob_all_params, glob_V_mem, glob_Ca2, glob_areas, glob_caps, I_ext = glob_curr_prim)
+	
+	all_errors = np.random.rand(glob_num_neurons)
+	
+	glob_all_params = death_and_sex(glob_all_params, all_errors)
 
-glob_all_params, glob_V_mem, glob_Ca2, glob_areas, glob_caps = initialize_neurons(num_neurons = 50)
-
-
-glob_curr_prim = current_primitive(60000, 'square', 0, 0.5, 0.5, 0.75)
-glob_Vs, glob_all_params, glob_V_mem, glob_Ca2 = the_old_simulator9000(glob_all_params, glob_V_mem, glob_Ca2, glob_areas, glob_caps)
-glob_Vs, glob_all_params, glob_V_mem, glob_Ca2 = the_old_simulator9000(glob_all_params, glob_V_mem, glob_Ca2, glob_areas, glob_caps, I_ext = glob_curr_prim)
-
-for V in glob_Vs:
-	plt.plot(V)
+	plt.plot(glob_Vs[0])
 	plt.show()
+'''
