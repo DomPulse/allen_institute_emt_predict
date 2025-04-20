@@ -140,11 +140,11 @@ def define_param_limits():
 	#they belong in slots 2 and 3 respectively
 	dpc_loc_param_limits = np.zeros((16, 2))
 	
-	mult = 1
+	mult = 1E-1
 	dpc_loc_param_limits[0, 1] = 40000*mult #upper limit g_Na transient
-	dpc_loc_param_limits[1, 1] = 0*100*mult #upper limit g_Na persistent
+	dpc_loc_param_limits[1, 1] = 100*mult #upper limit g_Na persistent
 	
-	dpc_loc_param_limits[2, 1] = 0*3*mult #upper limit g_H, infered from the older model
+	dpc_loc_param_limits[2, 1] = 3*mult #upper limit g_H, infered from the older model
 	dpc_loc_param_limits[3, 1] = 500*mult #guessed from older model, used g_A 
 	
 	dpc_loc_param_limits[4, 1] = 1000*mult #upper limit g_K transient
@@ -162,6 +162,9 @@ def define_param_limits():
 	
 	dpc_loc_param_limits[15, :] = [6E-1, 6.5E-1] #capacitence in uF
 	dpc_loc_param_limits[14, :] = [6E-3, 6.5E-3] #area in um^2?
+	
+	dpc_loc_param_limits[15, :] = [0.5, 2] #capacitence in uF
+	#dpc_loc_param_limits[14, :] = [0.9, 1] #area in um^2?
 	
 	#dpc_loc_param_limits[15, :] = [6.28E-2, 1] #capacitence in uF?
 
@@ -316,11 +319,12 @@ def initialize_neurons(init_loc_num_neurons = 500):
 	return init_loc_all_params, init_loc_V_mem, init_loc_Ca2, init_loc_passives 
 
 
-glob_num_neurons = 10
+glob_num_neurons = 500
 glob_Tadj = 2.95 #epirically taken from their paper, i don't care about temperature
 glob_all_params, glob_V_mem, glob_Ca2, glob_passives = initialize_neurons(glob_num_neurons)
 
 glob_curr_prim = current_primitive(60000, 'square', 0, 0.5, 0.33, 0.66)
+glob_curr_prim = current_primitive(60000, 'ramp', 0, 0.8, 0.15, 1)
 glob_Vs, glob_all_params, glob_V_mem, glob_Ca2 = the_old_simulator9000(glob_all_params, glob_V_mem, glob_Ca2, glob_passives)
 glob_Vs, glob_all_params, glob_V_mem, glob_Ca2 = the_old_simulator9000(glob_all_params, glob_V_mem, glob_Ca2, glob_passives, I_ext = glob_curr_prim)
 
