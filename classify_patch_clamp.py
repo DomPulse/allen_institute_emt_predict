@@ -8,21 +8,11 @@ import efel
 
 efel_features = ['voltage_base', 'time_to_first_spike', 'time_to_last_spike',
 				  'sag_amplitude', 'sag_ratio1', 'sag_time_constant',
-				  'minimum_voltage', 'AP1_width', 'APlast_width', 
+				  'minimum_voltage', 'maximum_voltage', 'AP1_width', 'APlast_width', 
 				  'deactivation_time_constant', 'activation_time_constant', 'inactivation_time_constant']
 
 def i_like_em_chunky(stop_at, raw_current, the_times, raw_voltage):
-	trace1 = {}
-	trace1['T'] = the_times[:stop_at]
-	trace1['V'] = raw_voltage[:stop_at]
-	trace1['stim_start'] = [0]
-	trace1['stim_end'] = [stop_at]
-	traces = [trace1]
-	efel.set_setting('Threshold', -20)
-	traces_results = efel.get_feature_values(traces, ['time_to_first_spike'])
-	for trace_results in traces_results:
-		for feature_name, feature_values in trace_results.items():
-			print(feature_values)
+
 	
 	
 	curr_diff = np.abs(np.roll(raw_current, -1) - raw_current)[:stop_at]
@@ -85,20 +75,45 @@ def i_like_em_chunky(stop_at, raw_current, the_times, raw_voltage):
 		last_time_idx = chunky[-1, 0] + 1
 		second_time = the_times[second_time_idx]
 		last_time = the_times[last_time_idx]
+		last_time_end = the_times[chunky[-1, 1] + 1] #can you tell this is a later addition?
 		current_second_edge = raw_current[second_time_idx]
 		current_last_edge = raw_current[last_time_idx]
 		
 	else:
 		second_time = 0
 		last_time = 0
+		last_time_end = 2
 		current_second_edge = 0
 		current_last_edge = 0
 	integrated_current = np.sum(raw_current)
-	derived_current_params = [current_type, second_time, last_time, current_second_edge, current_last_edge, integrated_current, np.min(raw_current[:stop_at]), np.max(raw_current[:stop_at]), num_edge, the_times[stop_at - 1]]
+	derived_current_params = [current_type, second_time, last_time, last_time_end, current_second_edge, current_last_edge, integrated_current, np.min(raw_current[:stop_at]), np.max(raw_current[:stop_at]), num_edge, the_times[stop_at - 1]]
 	
-	print(derived_current_params)
+	try:
+		trace1 = {}
+		trace1['T'] = the_times[:stop_at]
+		trace1['V'] = raw_voltage[:stop_at]
+		trace1['stim_start'] = [last_time]
+		trace1['stim_end'] = [last_time_end]
+		traces = [trace1]
+		efel.set_setting('Threshold', -20)
+		traces_results = efel.get_feature_values(traces, efel_features)
+		derived_efeatures = []
+		for trace_results in traces_results:
+			for feature_name, feature_values in trace_results.items():
 	
-	return chunky, failed, derived_current_params, curr_diff
+	
+				if feature_values is None:
+					this_feat_val = 0
+				else:
+					this_feat_val = feature_values[0]
+				derived_efeatures.append(this_feat_val)
+		
+		#print(derived_efeatures)
+	except:
+		failed = True
+		#print('failure')
+	
+	return chunky, failed, curr_diff, derived_current_params, derived_efeatures
 
 def main():
 	folder_path = 'F:\\Big_MET_data\\fine_and_dandi_ephys\\000020\\sub-673134052\\'
@@ -111,7 +126,7 @@ def main():
 	for i in range(len(all_times)):
 		stop_at = orginal_lengths[i]-2
 		
-		chunks, is_bad_data, derived_current_params, diff_current = i_like_em_chunky(stop_at, all_currents[i], all_times[i], all_volts[i])
+		chunks, is_bad_data, diff_current, derived_current_params, derived_efeatures = i_like_em_chunky(stop_at, all_currents[i], all_times[i], all_volts[i])
 	
 		fig, axs = plt.subplots(2)
 		axs[0].set_xlabel('Time (ms)')
