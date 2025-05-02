@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import load_patch_clamp_data as lpcd
+import classify_patch_clamp as cpc
 import gc
 
 def list_all_files(root_folder):
@@ -38,7 +39,7 @@ def main():
 	filtered_df = counts_df[zero_counts >= max_zeros]
 	
 	col_names= list(filtered_df)
-	gene_names = filtered_df[col_names[0]]
+	gene_names = list(filtered_df[col_names[0]])
 	
 	in_ephys = meta_data_df.index[meta_data_df['ephys_session_id'].isin(ephys_ses)].tolist()
 	in_trans = meta_data_df.index[meta_data_df['transcriptomics_sample_id'].isin(col_names)].tolist()
@@ -54,9 +55,27 @@ def main():
 	files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
 	all_times, all_currents, all_volts, orginal_lengths = lpcd.give_me_the_stuff(folder_path, files)
 	
+	input_data_dict = []
+	output_data_dict = []
+	in_col_names =  ['file_path', 'exp_index'] + ['current_type', 'second_time', 'last_time', 'last_time_end', 'current_second_edge', 'current_last_edge', 'integrated_current', 'min_current', 'max_current', 'num_edge', 'sim_time']+ gene_names
+	out_col_names = ['file_path', 'exp_index'] + ['voltage_base', 'time_to_first_spike', 'time_to_last_spike',
+					  'sag_amplitude', 'sag_ratio1', 'sag_time_constant',
+					  'minimum_voltage', 'maximum_voltage', 'AP1_width', 'APlast_width', 
+					  'deactivation_time_constant', 'activation_time_constant', 'inactivation_time_constant']
 	for i in range(len(all_times)):
+		dicts_key = f"{ses_path_dict[ephys_ses[example_idx]]}_{i}"
 		stop_at = orginal_lengths[i]-1
-	
+		
+		try:
+			chunks, is_bad_data, diff_current, derived_current_params, derived_efeatures = cpc.i_like_em_chunky(stop_at, all_currents[i], all_times[i], all_volts[i])
+			if not is_bad_data:
+				#print(folder_path, i, derived_efeatures)
+				output_data_dict.append([ses_path_dict[ephys_ses[example_idx]], i] + derived_efeatures)
+				#print(filtered_df[example_col].to_list())
+				input_data_dict.append([ses_path_dict[ephys_ses[example_idx]], i] + derived_current_params+filtered_df[example_col].to_list())
+		except:
+			pass
+		
 		fig, ax1 = plt.subplots(figsize=(10, 5))
 		ax1.set_xlabel('Time (ms)')
 		ax1.set_ylabel('Voltage (mV)')
@@ -74,6 +93,9 @@ def main():
 	
 	plt.bar(gene_names, filtered_df[example_col])
 	plt.show()
+	
+	pd.DataFrame(output_data_dict, columns = out_col_names).to_csv('out_test.csv')
+	pd.DataFrame(input_data_dict, columns = in_col_names).to_csv('in_test.csv')
 
 if __name__ == "__main__":
 	main()
