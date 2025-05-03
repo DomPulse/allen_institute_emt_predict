@@ -41,6 +41,8 @@ def main():
 	col_names= list(filtered_df)
 	gene_names = list(filtered_df[col_names[0]])
 	
+	print('goon', len(col_names), len(ephys_ses))
+	
 	in_ephys = meta_data_df.index[meta_data_df['ephys_session_id'].isin(ephys_ses)].tolist()
 	in_trans = meta_data_df.index[meta_data_df['transcriptomics_sample_id'].isin(col_names)].tolist()
 	right_row = meta_data_df.index[(meta_data_df['transcriptomics_sample_id'].isin(col_names)) & (meta_data_df['ephys_session_id'].isin(ephys_ses))].tolist()
