@@ -27,6 +27,22 @@ if version.parse(sklearn_version) >= version.parse("1.2"):
 else:
 	encoder = OneHotEncoder(sparse=False, handle_unknown='ignore')
 
+def minmax_scale_neg1_1(X):
+	X_min = X.min(axis=0)
+	X_max = X.max(axis=0)
+	denom = np.where(X_max - X_min == 0, 1, X_max - X_min)
+	X_scaled = 2 * (X - X_min) / denom - 1
+	return X_scaled, X_min, X_max
+
+def save_minmax_csv(min_vals, max_vals, column_names, out_path):
+	df = pd.DataFrame({
+		'column': column_names,
+		'min': min_vals,
+		'max': max_vals
+	})
+	df.to_csv(out_path, index=False)
+
+
 def load_and_process_data(data_dir):
 	input_files = glob.glob(os.path.join(data_dir, "*_in_test.csv"))
 
@@ -84,7 +100,18 @@ def load_and_process_data(data_dir):
 	X = np.vstack(input_list)
 	y = np.vstack(output_list)
 
+	# Normalize input
+	X, X_min, X_max = minmax_scale_neg1_1(X)
+	input_columns = [f"input_{i}" for i in range(X.shape[1])]
+	save_minmax_csv(X_min, X_max, input_columns, "input_minmax.csv")
+
+	# Normalize output
+	y, y_min, y_max = minmax_scale_neg1_1(y)
+	output_columns = [f"output_{i}" for i in range(y.shape[1])]
+	save_minmax_csv(y_min, y_max, output_columns, "output_minmax.csv")
+
 	return X, y
+
 
 def create_dataloaders(X, y, test_size, batch_size):
 	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
@@ -109,8 +136,8 @@ print("Data loaded and DataLoaders ready.")
 # Initialize Network
 #yes there is a better way to do this, no I aparently don't know how to do it
 dropout_p = 0.1
-hid_size = 256
-act_func = nn.LeakyReLU()
+hid_size = 1024
+act_func = nn.Tanh()
 net = nn.Sequential(
 	nn.Linear(840, hid_size),
 	act_func,
@@ -123,6 +150,26 @@ net = nn.Sequential(
 	nn.Linear(hid_size, hid_size),
 	act_func,
 	nn.Dropout(dropout_p),
+	
+	nn.Linear(hid_size, hid_size),
+	act_func,
+	nn.Dropout(dropout_p),
+	
+	nn.Linear(hid_size, hid_size),
+	act_func,
+	nn.Dropout(dropout_p),
+	
+	nn.Linear(hid_size, hid_size),
+	act_func,
+	nn.Dropout(dropout_p),
+	
+	nn.Linear(hid_size, hid_size),
+	act_func,
+	nn.Dropout(dropout_p),
+	
+	nn.Linear(hid_size, hid_size),
+	act_func,
+	nn.Dropout(dropout_p),
 
 	nn.Linear(hid_size, 13),
 	act_func
@@ -130,9 +177,9 @@ net = nn.Sequential(
 
 
 criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(net.parameters(), lr=1e-3, betas=(0.8, 0.9))
+optimizer = torch.optim.Adam(net.parameters(), lr=1e-5, betas=(0.8, 0.9))
 #optimizer = torch.optim.SGD(net.parameters(), lr=1e-5)
-num_epochs = 100
+num_epochs = 1000
 loss_hist = []
 test_acc_hist = []
 counter = 0
@@ -159,7 +206,7 @@ for epoch in range(num_epochs):  # loop over the dataset multiple times
 
 		# print statistics
 		running_loss += loss.item()
-		if i % 50 == 0:	# print every 2000 mini-batches
+		if i % 100 == 0 and i != 0:	# print every 2000 mini-batches
 			test_loss = 0
 			total = 0
 			# since we're not training, we don't need to calculate the gradients for our outputs
@@ -174,8 +221,8 @@ for epoch in range(num_epochs):  # loop over the dataset multiple times
 					test_loss += loss.item()
 					total += batch_size
 
-				print(f'Loss of the network during epoch {epoch} and {i}: {test_loss//total}')
-	torch.save(net.state_dict(), f"{epoch}_predict_derived_ephys.pth")
+				print(f'Loss of the network during epoch {epoch} and {i}: {test_loss}')
+	torch.save(net.state_dict(), f"F:\Big_MET_data\predict_NNs\{epoch}_predict_derived_ephys.pth")
 
 print('Finished Training')
 
