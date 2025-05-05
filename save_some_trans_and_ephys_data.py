@@ -41,18 +41,15 @@ def main():
 	col_names= list(filtered_df)
 	gene_names = list(filtered_df[col_names[0]])
 	
-	print('goon', len(col_names), len(ephys_ses))
-	
 	in_ephys = meta_data_df.index[meta_data_df['ephys_session_id'].isin(ephys_ses)].tolist()
 	in_trans = meta_data_df.index[meta_data_df['transcriptomics_sample_id'].isin(col_names)].tolist()
 	right_row = meta_data_df.index[(meta_data_df['transcriptomics_sample_id'].isin(col_names)) & (meta_data_df['ephys_session_id'].isin(ephys_ses))].tolist()
 	
 	example_idx = np.random.randint(len(right_row))
 	
-	#check your fucking indexing you god damn idiot
-	for example_idx in range(len(right_row)):
-		full_save_path = r'F:\Big_MET_data\my_proced_data'
-		example_col = col_names[example_idx+1] #30% sure this fixes a previous off by one error? like the first index is the names right
+	for example_idx in range(614, len(right_row)):
+		full_save_path = r'F:\Big_MET_data\single_pulses_only'
+		example_col = col_names[example_idx+1] #80% sure this fixes a previous off by one error? like the first index is the names right
 		folder_path = f'{ses_path_dict[ephys_ses[example_idx]]}\\'
 			
 		files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
@@ -60,14 +57,12 @@ def main():
 		
 		input_data_dict = []
 		output_data_dict = []
-		in_col_names =  ['file_path', 'exp_index'] + ['current_type', 'second_time', 'last_time', 'last_time_end', 'current_second_edge', 'current_last_edge', 'integrated_current', 'min_current', 'max_current', 'num_edge', 'sim_time']+ gene_names
+		in_col_names =  ['file_path', 'exp_index'] + ['second_time_start', 'second_time_end', 'current_second_edge', 'sim_length'] + gene_names
 		out_col_names = ['file_path', 'exp_index'] + ['voltage_base', 'time_to_first_spike', 'time_to_last_spike',
 						  'sag_amplitude', 'sag_ratio1', 'sag_time_constant',
-						  'minimum_voltage', 'maximum_voltage', 'AP1_width', 'APlast_width', 
-						  'deactivation_time_constant', 'activation_time_constant', 'inactivation_time_constant']
+						  'minimum_voltage', 'maximum_voltage', 'spike_count']
 		
 		for i in range(len(all_times)):
-			dicts_key = f"{ses_path_dict[ephys_ses[example_idx]]}_{i}"
 			stop_at = orginal_lengths[i]-1
 			
 			try:
@@ -100,7 +95,8 @@ def main():
 		
 		pd.DataFrame(output_data_dict, columns = out_col_names).to_csv(os.path.join(full_save_path, f'{example_idx}_out_test.csv'))
 		pd.DataFrame(input_data_dict, columns = in_col_names).to_csv(os.path.join(full_save_path, f'{example_idx}_in_test.csv'))
-
+		gc.collect()
+		
 if __name__ == "__main__":
 	main()
 	gc.collect()
