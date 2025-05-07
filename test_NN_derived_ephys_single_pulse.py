@@ -16,7 +16,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Current device: {device}")
 
 # --- Config ---
-DATA_DIR = "F:\\Big_MET_data\\single_pulses_only"
+DATA_DIR = "F:\\Big_MET_data\\single_pulse_selected_genes"
 norm_save_dir = "F:\\Big_MET_data\\norm_and_encode_metadata\\single_pulse"
 STRING_COLUMN_INDEX = 0  # Adjusted because we drop 3 columns before indexing
 MIN_FILE_SIZE_BYTES = 3072  # Skip files smaller than 1KB
@@ -84,11 +84,10 @@ class PreprocessingArtifacts:
 
 	def _normalize(self, arr, min_vals, max_vals):
 		denom = np.where(max_vals - min_vals == 0, 1, max_vals - min_vals)
-		return 2 * (arr - min_vals) / denom - 1
+		return (arr - min_vals) / denom
 
 	def _denormalize(self, arr, min_vals, max_vals):
-		denom = np.where(max_vals - min_vals == 0, 1, max_vals - min_vals)
-		return (arr + 1) / 2 * denom + min_vals
+		return arr * (max_vals - min_vals) + min_vals
 
 	def _save_minmax_csv(self, min_vals, max_vals, dim, path):
 		df = pd.DataFrame({
@@ -133,7 +132,10 @@ def load_and_process_data(data_dir):
 	# Second pass
 	for in_file, out_file in valid_file_pairs:
 		in_df = pd.read_csv(in_file).iloc[:, 3:]
-		out_df = pd.read_csv(out_file).iloc[:, 3:]
+		only_positive_rows = (in_df['current_second_edge'] > 0).to_numpy()
+		
+		in_df = pd.read_csv(in_file).iloc[only_positive_rows, 3:]
+		out_df = pd.read_csv(out_file).iloc[only_positive_rows, 3:]
 		
 		input_list.append(in_df.values)
 		output_list.append(out_df.values)
@@ -170,26 +172,27 @@ print("Data loaded and DataLoaders ready.")
 # Initialize Network
 #yes there is a better way to do this, no I aparently don't know how to do it
 dropout_p = 0.25
-hid_size = 1024
-act_func = nn.Tanh()
+hid_size = 256
+act_func = nn.Sigmoid()
 net = nn.Sequential(
-	nn.Linear(830, hid_size),
+	nn.Linear(147, hid_size),
 	act_func,
 	nn.Dropout(dropout_p),
 	
 	nn.Linear(hid_size, hid_size),
 	act_func,
 	nn.Dropout(dropout_p),
-
+	
 	nn.Linear(hid_size, hid_size),
 	act_func,
 	nn.Dropout(dropout_p),
-		
+			
 	nn.Linear(hid_size, 9),
 	).to(device)
 
 
-net.load_state_dict(torch.load("F:\\Big_MET_data\\single_pulse_predict_NNs\\50_predict_derived_ephys.pth"))
+
+net.load_state_dict(torch.load("F:\\Big_MET_data\\single_pulse_predict_NNs\\25_predict_derived_ephys.pth"))
 
 out_size = 9
 all_outputs = np.zeros((0, out_size))
