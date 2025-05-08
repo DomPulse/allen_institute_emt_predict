@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
+import gc
 
 from io import StringIO
 import requests
@@ -59,7 +60,7 @@ def list_all_files(root_folder):
 
 def main():
 	
-	save_path = r"F:\Big_MET_data"
+	save_path = r"‪F:\Big_MET_data\my_combo_morph_trans"
 	meta_data_path = r"F:\Big_MET_data\20200711_patchseq_metadata_mouse.csv"
 	counts_path = r"F:\Big_MET_data\trans_data_cpm\20200513_Mouse_PatchSeq_Release_cpm.v2.csv"
 	morph_path = "F:\Big_MET_data\single_pulses_only"
@@ -85,29 +86,38 @@ def main():
 	right_row = meta_data_df.index[(meta_data_df['transcriptomics_sample_id'].isin(col_names)) & (meta_data_df['ephys_session_id'].isin(ephys_ses))].tolist()
 	gene_names = list(counts_df[col_names[0]])
 	
-	combo_data_dict = []
+
 	
 	col_names_for_my_csv = ['ephys_path', 'cell_id', 'correct_eses_id', 'transcriptomics_sample_id'] + morph_features + gene_names
-	for example_idx in range(0, 5):
-		try:
-			transcriptomics_sample_id = col_names[example_idx+1]
-			cell_id = meta_data_df['cell_specimen_id'].loc[example_idx]
-			correct_eses_id = meta_data_df['ephys_session_id'].loc[example_idx]
-			ephys_path = ses_path_dict[correct_eses_id]
-			swc_path = f"F:\Big_MET_data\just_morpho\{cell_id}_transformed.swc"
-			test_data = Data(morphology_from_swc(swc_path))
-			gaimen = my_feat_pics(test_data)
-			my_morpho_data = []
-			for key, val in gaimen.items():
-				my_morpho_data.append(val)
-			print(cell_id, correct_eses_id, ephys_path, transcriptomics_sample_id)
-			my_meta_data = [ephys_path, cell_id, correct_eses_id, transcriptomics_sample_id]
-			combo_data_dict.append(my_meta_data + my_morpho_data + counts_df[transcriptomics_sample_id].to_list())
-		except:
-			print('passed')
-			
+	batch_size = 100
+	num_batches = len(right_row)//batch_size
 	
-	pd.DataFrame(combo_data_dict, columns = col_names_for_my_csv).to_csv(os.path.join(save_path, f'combo_morp_trans.csv'))
+	for b in range(num_batches):
+		combo_data_dict = []
+		start_idx = b*batch_size
+		end_idx = (b + 1)*batch_size
+		for example_idx in range(start_idx, end_idx):
+			try:
+				transcriptomics_sample_id = col_names[example_idx+1]
+				cell_id = meta_data_df['cell_specimen_id'].loc[example_idx]
+				correct_eses_id = meta_data_df['ephys_session_id'].loc[example_idx]
+				ephys_path = ses_path_dict[correct_eses_id]
+				swc_path = f"F:\Big_MET_data\just_morpho\{cell_id}_transformed.swc"
+				test_data = Data(morphology_from_swc(swc_path))
+				gaimen = my_feat_pics(test_data)
+				my_morpho_data = []
+				for key, val in gaimen.items():
+					my_morpho_data.append(val)
+				print(cell_id, correct_eses_id, ephys_path, transcriptomics_sample_id)
+				my_meta_data = [ephys_path, cell_id, correct_eses_id, transcriptomics_sample_id]
+				combo_data_dict.append(my_meta_data + my_morpho_data + counts_df[transcriptomics_sample_id].to_list())
+			except:
+				print('passed')
+				
+		
+		pd.DataFrame(combo_data_dict, columns = col_names_for_my_csv).to_csv(os.path.join(save_path, f'{b}_combo_morph_trans.csv'))
+		del combo_data_dict
+		gc.collect()
 		
 if __name__ == "__main__":
 	main()
