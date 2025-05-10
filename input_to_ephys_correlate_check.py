@@ -67,12 +67,17 @@ for stim_current in currents_to_check:
 		mean_output_feature = []
 		valid_inputs = []
 				
-		#for data_idx in range(len(morpho_trans_data['cell_id'].to_list())):
-		for data_idx in range(20):
+		for data_idx in range(len(morpho_trans_data['cell_id'].to_list())):
+		#for data_idx in range(20):
 			#print(morpho_trans_data['ephys_path'].loc[data_idx], morpho_trans_data['cell_id'].loc[data_idx]) 
 			
 			cell_id = morpho_trans_data['cell_id'].loc[data_idx]
-			this_cell_ephys = pd.read_csv(f'{ephys_path}\{cell_id}.csv')
+			
+			try:
+				this_cell_ephys = pd.read_csv(f'{ephys_path}\{cell_id}.csv')
+			except:
+				pass
+				#print(f'{cell_id} data not found!')
 	
 			this_current_ephys = this_cell_ephys[np.isclose(this_cell_ephys['current_second_edge'], stim_current, atol = 0.0001)]
 			
