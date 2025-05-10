@@ -40,18 +40,24 @@ def norm_row(array):
 	max_by_row = max_by_row.reshape(-1,1)
 	return np.divide(array, max_by_row)
 
-def create_dataloaders(X, y, test_size, batch_size):
-	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
+def create_dataloaders(X, y, test_size, batch_size, seed=42):
+	X_train, X_test, y_train, y_test = train_test_split(
+		X, y, test_size=test_size, random_state=seed
+	)
 
 	train_dataset = TensorDataset(torch.tensor(X_train, dtype=torch.float32),
 								  torch.tensor(y_train, dtype=torch.float32))
 	test_dataset = TensorDataset(torch.tensor(X_test, dtype=torch.float32),
 								 torch.tensor(y_test, dtype=torch.float32))
 
-	train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-	test_loader = DataLoader(test_dataset, batch_size=batch_size)
+	g = torch.Generator()
+	g.manual_seed(seed)
+
+	train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, generator=g)
+	test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 	return train_loader, test_loader
+
 
 mean_output_feature = []
 valid_inputs = []
@@ -98,26 +104,21 @@ print(f'Current device: {device}')
 
 # Initialize Network
 #yes there is a better way to do this, no I aparently don't know how to do it
-dropout_p = 0.1
-hid_size = 128
-act_func = nn.Sigmoid()
 net = nn.Sequential(
-	nn.Linear(71, hid_size),
-	act_func,
-	nn.Dropout(dropout_p),
-	
-	nn.Linear(hid_size, hid_size),
-	act_func,
-	nn.Dropout(dropout_p),
+    nn.Linear(71, 128),
+    nn.ReLU(),
+    nn.Dropout(0.2),
+    
+    nn.Linear(128, 64),
+    nn.ReLU(),
+    nn.Dropout(0.2),
+    
+    nn.Linear(64, 1)
+).to(device)
 
-	nn.Linear(hid_size, 1),
-	nn.ReLU()
-	).to(device)
-
-criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(net.parameters(), lr=1e-5, betas=(0.8, 0.9))
-#optimizer = torch.optim.SGD(net.parameters(), lr=1e-5)
-num_epochs = 500
+criterion = nn.HuberLoss()
+optimizer = torch.optim.Adam(net.parameters(), lr=1e-3, betas=(0.9, 0.999))
+num_epochs = 20
 loss_hist = []
 test_acc_hist = []
 counter = 0
@@ -163,3 +164,29 @@ for epoch in range(num_epochs):  # loop over the dataset multiple times
 	torch.save(net.state_dict(), f"F:\\Big_MET_data\\fresh_predict_NNs\\{epoch}_predict_derived_ephys.pth")
 
 print('Finished Training')
+
+net.eval()
+
+all_outs = []
+all_labels = []
+with torch.no_grad():
+	for i, data in enumerate(test_loader, 0):
+		# get the inputs; data is a list of [inputs, labels]
+		inputs, labels = data
+		dev_inputs = inputs.to(device)
+	
+		# forward + backward + optimize
+		dev_outputs = net(dev_inputs)
+		outputs = dev_outputs.detach().cpu().numpy()
+		labels = labels.numpy()
+		
+		all_outs += list(outputs)
+		all_labels += list(labels)
+	
+plt.title(f'{output_feature} prediction')
+plt.xlim(0.3, 0.8)
+plt.ylim(0.3, 0.8)
+plt.scatter(all_outs, all_labels)
+plt.xlabel('model prediction')
+plt.ylabel('true value')
+plt.show()
