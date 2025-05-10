@@ -5,6 +5,7 @@ import os
 import load_patch_clamp_data as lpcd
 import classify_patch_clamp as cpc
 import gc
+from sklearn.feature_selection import mutual_info_regression as mir
 
 just_trans_path = 'F:\Big_MET_data\metadata_pluse_trans.csv'
 mopho_trans_path = 'F:\Big_MET_data\combo_morph_trans.csv'
@@ -21,7 +22,8 @@ for stim_current in currents_to_check:
 	mean_volt_changes = []
 	valid_inputs = []
 	
-	for data_idx in range(5):
+	#for data_idx in range(len(morpho_trans_data['cell_id'].to_list())):
+	for data_idx in range(20):
 		#print(morpho_trans_data['ephys_path'].loc[data_idx], morpho_trans_data['cell_id'].loc[data_idx]) 
 		
 		cell_id = morpho_trans_data['cell_id'].loc[data_idx]
@@ -36,7 +38,6 @@ for stim_current in currents_to_check:
 				
 		
 		if len(voltage_changes) > 0:
-			print(len(voltage_changes))
 			mean_volt_changes.append(np.mean(voltage_changes))
 			this_input_data = morpho_trans_data.iloc[data_idx, 5:].to_numpy().astype(np.float64)
 			#print(this_input_data)
@@ -44,8 +45,7 @@ for stim_current in currents_to_check:
 			
 	mean_volt_changes = np.asarray(mean_volt_changes)		
 	valid_inputs = np.asarray(valid_inputs)
+		
+	mutual_info = mir(valid_inputs, mean_volt_changes, n_jobs=10)
+	print(mutual_info.shape)
 	
-	#print(valid_inputs.shape, mean_volt_changes.shape)
-	print(stim_current, mean_volt_changes)
-			
-
