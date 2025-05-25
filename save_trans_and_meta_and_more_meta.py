@@ -79,21 +79,37 @@ decode_meta_data_df = pd.get_dummies(decode_meta_data_df, columns = class_cal_co
 decode_meta_data_df = decode_meta_data_df.drop('T-type Label_Other', axis=1) #deletes the other column
 decode_meta_data_df.index = range(decode_meta_data_df.shape[0]) #renames the rows just numerically
 
+#we don't like true and false, we want binary
+to_be_int = ['hemisphere_right', 'biological_sex_M', 'structure_VISa5', 'structure_VISa6a', 'structure_VISal1', 'structure_VISal2/3', 'structure_VISal4', 'structure_VISal5', 'structure_VISal6a', 'structure_VISam2/3', 'structure_VISam4', 'structure_VISam5', 'structure_VISam6a', 'structure_VISl1', 'structure_VISl2/3', 'structure_VISl4', 'structure_VISl5', 'structure_VISl6a', 'structure_VISl6b', 'structure_VISli1', 'structure_VISli2/3', 'structure_VISli4', 'structure_VISli5', 'structure_VISli6a', 'structure_VISli6b', 'structure_VISp', 'structure_VISp1', 'structure_VISp2/3', 'structure_VISp4', 'structure_VISp5', 'structure_VISp6a', 'structure_VISp6b', 'structure_VISpl2/3', 'structure_VISpl4', 'structure_VISpl5', 'structure_VISpl6a', 'structure_VISpm1', 'structure_VISpm2/3', 'structure_VISpm4', 'structure_VISpm5', 'structure_VISpm6a', 'structure_VISpor1', 'structure_VISpor2/3', 'structure_VISpor4', 'structure_VISpor5', 'structure_VISpor6a', 'structure_VISpor6b', 'structure_VISrl2/3', 'structure_VISrl4', 'structure_VISrl5', 'structure_VISrl6a', 'T-type Label_Lamp5', 'T-type Label_Pvalb', 'T-type Label_Serpinf1', 'T-type Label_Sncg', 'T-type Label_Sst', 'T-type Label_Vip']
+decode_meta_data_df[to_be_int] = decode_meta_data_df[to_be_int].astype(int)
+
+#gives a list of columns where there just aren't enough samples imo
+col_sums = decode_meta_data_df.sum()
+cols_to_delete = []
+for col in to_be_int:
+	if col_sums[col] < 40:
+		#print(col, col_sums[col])
+		cols_to_delete.append(col)
+print(cols_to_delete)
 print(decode_meta_data_df)
 
 transcriptomics_sample_ids = decode_meta_data_df['transcriptomics_sample_id'].tolist()
 #print(transcriptomics_sample_ids)
 counts_to_concat = counts_df[transcriptomics_sample_ids].T.reset_index(drop=True)
-
+counts_to_concat.columns = gene_names
 print(counts_to_concat)
 
 the_meta_data_cols = list(decode_meta_data_df.columns)
 all_columns = the_meta_data_cols + gene_names
 
 df_new = pd.concat([decode_meta_data_df, counts_to_concat], axis=1)
-df_new.columns = all_columns
 
 print(df_new)
+
+#actually deletes given columns and rows
+for col in cols_to_delete:
+	df_new = df_new[df_new[col] != 1]
+	df_new = df_new.drop(col, axis=1)
 
 df_new.to_csv(os.path.join(save_path, 'double_metadata_plus_trans.csv'))
 
