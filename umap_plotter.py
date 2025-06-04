@@ -1,8 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import pandas as pd
 import umap
 import seaborn as sns
+from sklearn.cluster import KMeans
+
+def get_n_colors(n):
+
+	colors = cm.get_cmap('hsv', n)
+	return [colors(i)[:3] for i in range(n)]  # Remove alpha
 
 def norm_col(array):
 	min_by_col = np.min(array, axis = 0) 
@@ -57,6 +64,9 @@ ion_channel_genes = ['Kcnma1',
 counts_path = r"F:\Big_MET_data\trans_data_cpm\20200513_Mouse_PatchSeq_Release_cpm.v2.csv"
 meta_data_path = r"F:\Big_MET_data\20200711_patchseq_metadata_mouse.csv"
 
+num_clusters = 10
+embed_dim = 3
+
 gene_data = pd.read_csv(counts_path, index_col=0)
 metadata = pd.read_csv(meta_data_path)
 gene_names = list(gene_data.index)
@@ -66,75 +76,31 @@ print(indexes)
 
 marker_genes_for_umap = gene_names#pd.read_csv("select_markers.csv", index_col=0)
 
-embedding = umap.UMAP(n_components=3, n_neighbors=25).fit_transform(
+embedding = umap.UMAP(n_components=embed_dim, n_neighbors=25).fit_transform(
     np.log2(gene_data.loc[ion_channel_genes].values.T + 1)
 )
-my_ttype_metadata = metadata.loc[metadata["T-type Label"] == "Lamp5 Plch2 Dock5", :]
-my_ttype_mask = gene_data.columns.isin(my_ttype_metadata["transcriptomics_sample_id"].tolist())
 
-'''
-plt.figure(figsize=(8, 8))
-plt.scatter(*embedding.T, s=1, edgecolor="none")
-plt.scatter(*embedding[my_ttype_mask, :].T, s=2, edgecolor="none")
-sns.despine()
-'''
+embedding = np.asarray(embedding)
 
-fig = plt.figure(figsize=(8,6))
-ax = fig.add_subplot(projection='3d')
-ax.scatter3D(*embedding.T, s=1, edgecolor="none")
-ax.scatter3D(*embedding[my_ttype_mask, :].T, s=2, edgecolor="none")
-sns.despine()
-plt.show()
+kmeans = KMeans(n_clusters = num_clusters)
+labels = kmeans.fit_predict(embedding)
+color_options = get_n_colors(num_clusters)
 
+colors = []
+centers = np.zeros((num_clusters, embed_dim))
+pos_relative = np.zeros((embedding.shape[0], embed_dim))
+for j in range(num_clusters):
+	this_clust_idxs = np.where(labels == j)[0]
+	centers[j] = np.mean(embedding[this_clust_idxs], axis = 0)
 
-input_current = 0.15 #we only want to look at one current input level so the model doesn't have to learn dependence on that in addition to the morphology and trans stuff
-output_feature = 'steady_state_voltage_stimend' #only predicting one output feature at a time, some things like time to first spike, are not always going to have a meaningful value for every experiment so it's just easiest to do sperate models for each feature
-approved_input_features = ['hemisphere_right', 'biological_sex_M', 'structure_VISl2/3', 'structure_VISl5', 'structure_VISl6a', 'structure_VISp1', 'structure_VISp2/3', 'structure_VISp4', 'structure_VISp5', 'structure_VISp6a', 'structure_VISpm2/3', 'structure_VISpm5', 'structure_VISpm6a', 'T-type Label_Lamp5', 'T-type Label_Pvalb', 'T-type Label_Serpinf1', 'T-type Label_Sncg', 'T-type Label_Sst', 'T-type Label_Vip', 'cluster_0_0', 'cluster_0_1', 'cluster_0_2', 'cluster_1_0', 'cluster_1_1', 'cluster_1_2', 'cluster_2_0', 'cluster_2_1', 'cluster_2_2', 'cluster_3_0', 'cluster_3_1', 'cluster_3_2', 'cluster_4_0', 'cluster_4_1', 'cluster_4_2', 'cluster_5_0', 'cluster_5_1', 'cluster_5_2', 'cluster_6_0', 'cluster_6_1', 'cluster_6_2', 'cluster_7_0', 'cluster_7_1', 'cluster_7_2', 'cluster_8_0', 'cluster_8_1', 'cluster_8_2', 'cluster_9_0', 'cluster_9_1', 'cluster_9_2', 'cluster_10_0', 'cluster_10_1', 'cluster_10_2', 'cluster_11_0', 'cluster_11_1', 'cluster_11_2', 'cluster_12_0', 'cluster_12_1', 'cluster_12_2', 'cluster_13_0', 'cluster_13_1', 'cluster_13_2', 'cluster_14_0', 'cluster_14_1', 'cluster_14_2', 'cluster_15_0', 'cluster_15_1', 'cluster_15_2', 'cluster_16_0', 'cluster_16_1', 'cluster_16_2', 'cluster_17_0', 'cluster_17_1', 'cluster_17_2', 'cluster_18_0', 'cluster_18_1', 'cluster_18_2', 'cluster_19_0', 'cluster_19_1', 'cluster_19_2', 'cluster_20_0', 'cluster_20_1', 'cluster_20_2', 'cluster_21_0', 'cluster_21_1', 'cluster_21_2', 'cluster_22_0', 'cluster_22_1', 'cluster_22_2', 'cluster_23_0', 'cluster_23_1', 'cluster_23_2', 'cluster_24_0', 'cluster_24_1', 'cluster_24_2']
-
-print(len(approved_input_features))
-output_features_to_ignore_zeros = [
-	'time_to_first_spike', 'time_to_last_spike',
-	'AP_height', 'AP_width',
-	'sag_amplitude', 'sag_ratio1', 'sag_time_constant']
-metadata_path = 'F:\Big_MET_data\20200711_patchseq_metadata_mouse.csv'
-input_data_path = 'F:\Big_MET_data\\double_meta_plus_clusters.csv'
-output_data_dir = 'F:\Big_MET_data\derived_ephys'
-mean_output_feature = []
-valid_inputs = []
-just_trans_data = pd.read_csv(input_data_path, skip_blank_lines=True)
-for data_idx in range(len(just_trans_data['cell_specimen_id'].to_list())):
-#for data_idx in range(50):
-	#print(just_trans_data['ephys_path'].loc[data_idx], just_trans_data['cell_id'].loc[data_idx]) 
-	
-	try:
-		cell_id = int(just_trans_data['cell_specimen_id'].loc[data_idx])
-		
-		this_cell_ephys = pd.read_csv(f'{output_data_dir}\{cell_id}.csv')
-	
-
-		this_current_ephys = this_cell_ephys[np.isclose(this_cell_ephys['current_second_edge'], input_current, atol = 0.0001)]
-		
-		#we want to ignore things with value 0 for certain features
-		#like we don't want to inclde time to first spike when there were no spikes, ya dig?
-		output_features = this_current_ephys[this_current_ephys[output_feature] != 0].to_numpy()
-		
-		if len(output_features) > 0:
-			mean_output_feature.append(output_features[0])
-			this_input_data = just_trans_data.loc[data_idx, approved_input_features].to_numpy().astype(np.float64)
-			valid_inputs.append(list(this_input_data))
-	except:
-		pass
-		#print(f'{cell_id} data not found!')
-	
-mean_output_feature = np.asarray(mean_output_feature)		
-valid_inputs = np.asarray(valid_inputs)
-
-mean_output_feature = norm_col(mean_output_feature)
-
-embedding = umap.UMAP(n_components=3, n_neighbors=25).fit_transform(mean_output_feature)
+for idx, i in enumerate(labels):
+	pos_relative[idx] = embedding[idx] - centers[i]
+	colors.append(list(color_options[i]))
 
 fig = plt.figure(figsize=(8,6))
 ax = fig.add_subplot(projection='3d')
-ax.scatter3D(*embedding.T, s=1, edgecolor="none")
+ax.scatter3D(*embedding.T, s=1, edgecolor="none", color = colors, alpha = 0.5)
+ax.scatter3D(*centers.T, s=10, edgecolor="none", color = 'black')
 sns.despine()
 plt.show()
+
