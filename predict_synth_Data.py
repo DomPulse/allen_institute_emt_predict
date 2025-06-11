@@ -18,7 +18,7 @@ def norm_col(array):
 	max_by_col = np.max(array, axis = 0)
 	return np.divide(array, max_by_col)
 
-data_path = r'D:\Neuro_Sci\morph_ephys_trans_stuff\gamer_moment.csv'
+data_path = r'D:\Neuro_Sci\morph_ephys_trans_stuff\varable_morph_proxy_synth_data.csv'
 input_features = ['Na_g', 'CaT_g', 'CaS_g', 'A_g', 'KCa_g', 'Kd_g', 'H_g', 'Leak_g']
 output_feature = 'steady_state_voltage'
 output_feature = 'steady_state_voltage_stimend'
@@ -27,6 +27,10 @@ df = pd.read_csv(data_path)
 
 input_data = df[input_features].to_numpy()
 output_data = df[output_feature].to_numpy()
+
+nan_mask = np.where(~np.isnan(output_data))[0]
+input_data = input_data[nan_mask]
+output_data = output_data[nan_mask]
 
 bottom_percentile = np.percentile(output_data, 10)
 top_percentile = np.percentile(output_data, 90)

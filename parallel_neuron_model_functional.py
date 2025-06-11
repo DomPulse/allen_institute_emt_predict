@@ -164,6 +164,9 @@ def initialize_neurons(num_neurons = 500, area = 6.28E-4, capacitence = 6.28E-1,
 	init_loc_areas = area*np.ones(num_neurons)
 	init_loc_caps = capacitence*np.ones(num_neurons)
 	
+	init_loc_areas = np.random.normal(area, area/3, num_neurons)
+	init_loc_caps = np.random.normal(capacitence, capacitence/3, num_neurons)
+	
 	#max conductance in uS/cm^2 ?
 	mult = 1000
 	Na_g = 100*mult
