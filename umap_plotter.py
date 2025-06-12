@@ -178,7 +178,7 @@ decode_meta_data_df = pd.get_dummies(decode_meta_data_df, columns = class_cal_co
 decode_meta_data_df.index = range(decode_meta_data_df.shape[0]) #renames the rows just numerically
 
 #we don't like true and false, we want binary
-to_be_int = ['hemisphere_right', 'biological_sex_M', 'structure_VISa5', 'structure_VISa6a', 'structure_VISal1', 'structure_VISal2/3', 'structure_VISal4', 'structure_VISal5', 'structure_VISal6a', 'structure_VISam2/3', 'structure_VISam4', 'structure_VISam5', 'structure_VISam6a', 'structure_VISl1', 'structure_VISl2/3', 'structure_VISl4', 'structure_VISl5', 'structure_VISl6a', 'structure_VISl6b', 'structure_VISli1', 'structure_VISli2/3', 'structure_VISli4', 'structure_VISli5', 'structure_VISli6a', 'structure_VISli6b', 'structure_VISp', 'structure_VISp1', 'structure_VISp2/3', 'structure_VISp4', 'structure_VISp5', 'structure_VISp6a', 'structure_VISp6b', 'structure_VISpl2/3', 'structure_VISpl4', 'structure_VISpl5', 'structure_VISpl6a', 'structure_VISpm1', 'structure_VISpm2/3', 'structure_VISpm4', 'structure_VISpm5', 'structure_VISpm6a', 'structure_VISpor1', 'structure_VISpor2/3', 'structure_VISpor4', 'structure_VISpor5', 'structure_VISpor6a', 'structure_VISpor6b', 'structure_VISrl2/3', 'structure_VISrl4', 'structure_VISrl5', 'structure_VISrl6a', 'just_my_type_0', 'just_my_type_1', 'just_my_type_2', 'just_my_type_3', 'just_my_type_4', 'just_my_type_5', 'just_my_type_6', 'just_my_type_7', 'just_my_type_8', 'just_my_type_9']
+to_be_int = ['hemisphere_right', 'biological_sex_M', 'structure_VISa5', 'structure_VISa6a', 'structure_VISal1', 'structure_VISal2/3', 'structure_VISal4', 'structure_VISal5', 'structure_VISal6a', 'structure_VISam2/3', 'structure_VISam4', 'structure_VISam5', 'structure_VISam6a', 'structure_VISl1', 'structure_VISl2/3', 'structure_VISl4', 'structure_VISl5', 'structure_VISl6a', 'structure_VISl6b', 'structure_VISli1', 'structure_VISli2/3', 'structure_VISli4', 'structure_VISli5', 'structure_VISli6a', 'structure_VISli6b', 'structure_VISp', 'structure_VISp1', 'structure_VISp2/3', 'structure_VISp4', 'structure_VISp5', 'structure_VISp6a', 'structure_VISp6b', 'structure_VISpl2/3', 'structure_VISpl4', 'structure_VISpl5', 'structure_VISpl6a', 'structure_VISpm1', 'structure_VISpm2/3', 'structure_VISpm4', 'structure_VISpm5', 'structure_VISpm6a', 'structure_VISpor1', 'structure_VISpor2/3', 'structure_VISpor4', 'structure_VISpor5', 'structure_VISpor6a', 'structure_VISpor6b', 'structure_VISrl2/3', 'structure_VISrl4', 'structure_VISrl5', 'structure_VISrl6a', 'just_my_type_0', 'just_my_type_1', 'just_my_type_2', 'just_my_type_3', 'just_my_type_4', 'just_my_type_5', 'just_my_type_6', 'just_my_type_7', 'just_my_type_8', 'just_my_type_9', 'just_my_type_10']
 decode_meta_data_df[to_be_int] = decode_meta_data_df[to_be_int].astype(int)
 
 #gives a list of columns where there just aren't enough samples imo
@@ -225,6 +225,8 @@ for data_idx in range(len(decode_meta_data_df['cell_specimen_id'].to_list())):
 		pass
 		#print(f'{cell_id} data not found!')
 		
+decode_meta_data_df = decode_meta_data_df[decode_meta_data_df['mean_resting_volt'] != 0.0] #deletes rows with no voltage data
+		
 mean_output_feature = decode_meta_data_df['mean_resting_volt'].to_numpy()
 bottom_percentile = np.percentile(mean_output_feature, 10)
 top_percentile = np.percentile(mean_output_feature, 90)
@@ -233,7 +235,7 @@ ax = fig.add_subplot(projection='3d')
 ax.scatter3D(decode_meta_data_df['0_embed_pos'], decode_meta_data_df['1_embed_pos'], decode_meta_data_df['2_embed_pos'],
 			 c=mean_output_feature, vmin = bottom_percentile,
 			vmax = top_percentile,
-		    cmap="jet",
+		    cmap="viridis",
 		    edgecolor="none",
 			marker='o', alpha = 0.1)
 plt.show()
@@ -249,9 +251,9 @@ for i in range(num_clusters):
 	ax.scatter3D(subset_df['0_embed_pos'], subset_df['1_embed_pos'], subset_df['2_embed_pos'],
 				 c=mean_output_feature, vmin = bottom_percentile,
 				vmax = top_percentile,
-			    cmap="jet",
+			    cmap="viridis",
 			    edgecolor="none",
-				marker='o', alpha = 0.3)
+				marker='o', alpha = 0.7)
 	plt.show()
 	
 decode_meta_data_df.to_csv(os.path.join(save_path, 'umap_pos.csv'))
