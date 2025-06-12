@@ -121,8 +121,8 @@ filt_meta_data_df['ephys_path'] = correct_eses_paths
 bin_cat_cols = ['hemisphere', 'biological_sex']
 decode_meta_data_df = pd.get_dummies(filt_meta_data_df, columns = bin_cat_cols, drop_first=True)
 
-num_clusters = 11
-embed_dim = 3
+num_clusters = 12
+embed_dim = 2
 
 metadata = pd.read_csv(meta_data_path)
 gene_data = pd.read_csv(counts_path, index_col=0)
@@ -197,15 +197,14 @@ for col in cols_to_delete:
 	decode_meta_data_df = decode_meta_data_df.drop(col, axis=1)
 
 print(list(decode_meta_data_df.columns))
+decode_meta_data_df.to_csv(os.path.join(save_path, 'umap_pos.csv'))
 
 r = decode_meta_data_df['r'].to_numpy()
 g = decode_meta_data_df['g'].to_numpy()
 b = decode_meta_data_df['b'].to_numpy()
 colors = np.stack((r, g, b), axis=1)
 
-fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
-ax.scatter3D(decode_meta_data_df['0_embed_pos'], decode_meta_data_df['1_embed_pos'], decode_meta_data_df['2_embed_pos'], color = colors, marker='o', alpha = 0.1)
+plt.scatter(decode_meta_data_df['0_embed_pos'], decode_meta_data_df['1_embed_pos'], color = colors, marker='o', alpha = 0.1)
 plt.show()
 
 input_current = 0.15 #we only want to look at one current input level so the model doesn't have to learn dependence on that in addition to the morphology and trans stuff
@@ -228,14 +227,13 @@ for data_idx in range(len(decode_meta_data_df['cell_specimen_id'].to_list())):
 mean_output_feature = decode_meta_data_df['mean_resting_volt'].to_numpy()
 bottom_percentile = np.percentile(mean_output_feature, 10)
 top_percentile = np.percentile(mean_output_feature, 90)
-fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
-ax.scatter3D(decode_meta_data_df['0_embed_pos'], decode_meta_data_df['1_embed_pos'], decode_meta_data_df['2_embed_pos'],
+
+plt.scatter(decode_meta_data_df['0_embed_pos'], decode_meta_data_df['1_embed_pos'],
 			 c=mean_output_feature, vmin = bottom_percentile,
-			vmax = top_percentile,
-		    cmap="jet",
-		    edgecolor="none",
-			marker='o', alpha = 0.1)
+			 vmax = top_percentile,
+			 cmap="jet",
+			 edgecolor="none",
+			 marker='o', alpha = 0.1)
 plt.show()
 
 for i in range(num_clusters):
@@ -244,14 +242,11 @@ for i in range(num_clusters):
 	mean_output_feature = subset_df['mean_resting_volt'].to_numpy()
 	bottom_percentile = np.percentile(mean_output_feature, 10)
 	top_percentile = np.percentile(mean_output_feature, 90)
-	fig = plt.figure()
-	ax = fig.add_subplot(projection='3d')
-	ax.scatter3D(subset_df['0_embed_pos'], subset_df['1_embed_pos'], subset_df['2_embed_pos'],
-				 c=mean_output_feature, vmin = bottom_percentile,
-				vmax = top_percentile,
-			    cmap="jet",
-			    edgecolor="none",
-				marker='o', alpha = 0.3)
+
+	plt.scatter(subset_df['0_embed_pos'], subset_df['1_embed_pos'],
+			   c=mean_output_feature, vmin = bottom_percentile,
+			   vmax = top_percentile,
+			   cmap="jet",
+			   edgecolor="none",
+			   marker='o', alpha = 0.3)
 	plt.show()
-	
-decode_meta_data_df.to_csv(os.path.join(save_path, 'umap_pos.csv'))
