@@ -122,7 +122,7 @@ bin_cat_cols = ['hemisphere', 'biological_sex']
 decode_meta_data_df = pd.get_dummies(filt_meta_data_df, columns = bin_cat_cols, drop_first=True)
 
 num_clusters = 11
-embed_dim = 3
+embed_dim = 10
 
 metadata = pd.read_csv(meta_data_path)
 gene_data = pd.read_csv(counts_path, index_col=0)
@@ -142,7 +142,7 @@ print(indexes)
 marker_genes_for_umap = gene_names#pd.read_csv("select_markers.csv", index_col=0)
 
 embedding = umap.UMAP(n_components=embed_dim, n_neighbors=25).fit_transform(
-    np.log2(gene_data[decode_meta_data_df['transcriptomics_sample_id']].loc[high_variance_genes].values.T + 1)
+    np.log2(gene_data[decode_meta_data_df['transcriptomics_sample_id']].loc[high_variance_genes+ion_channel_genes].values.T + 1)
 )
 
 embedding = np.asarray(embedding)
