@@ -59,7 +59,7 @@ print(f'Current device: {device}')
 
 # Initialize Network
 #yes there is a better way to do this, no I aparently don't know how to do it
-hid_size = 512
+hid_size = 128
 net = nn.Sequential(
     nn.Linear(len(pos_cols), hid_size),
     nn.Tanh(),
@@ -72,13 +72,13 @@ net = nn.Sequential(
     nn.Linear(hid_size, hid_size),
     nn.Tanh(),
 	nn.Dropout(0.2),
-			    
+				    
     nn.Linear(hid_size, 1)
 ).to(device)
 
-criterion = nn.MSELoss()
+criterion = nn.L1Loss()
 optimizer = torch.optim.Adam(net.parameters(), lr=3e-4, betas=(0.9, 0.999))
-num_epochs = 600  
+num_epochs = 2400  
 loss_hist = []
 test_acc_hist = []
 counter = 0
