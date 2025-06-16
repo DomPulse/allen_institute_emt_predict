@@ -29,17 +29,32 @@ def norm_row(array):
 	max_by_row = max_by_row.reshape(-1,1)
 	return np.divide(array, max_by_row)
 
-cluster_we_want = 'just_my_type_6'
+cluster_we_want = 'just_my_type_8'
+other_cols = ['structure_VISl2/3', 'structure_VISl5', 'structure_VISl6a', 'structure_VISp1', 'structure_VISp2/3', 'structure_VISp4', 'structure_VISp5', 'structure_VISp6a', 'structure_VISpm2/3', 'structure_VISpm5', 'structure_VISpm6a']
+morph_cols = [
+	    'mean_diameter',
+	    'max_branch_order',
+	    'max_euclidean_distance',
+		'max_path_distance',
+		'num_outer_bifurcations',
+		'num_branches',
+		'num_nodes',
+		'num_tips',
+		'total_length',
+		'total_surface_area',
+		'total_volume']
 pos_cols = []
-embed_dim = 10
+embed_dim = 15
 for i in range(embed_dim):
-	pos_cols.append(f'{i}_dim_pos')
+	#pos_cols.append(f'{i}_dim_pos')
+	pos_cols.append(f'{i}_embed_pos')
+all_cols = pos_cols + morph_cols
 
-all_data_path = r'F:\Big_MET_data\umap_pos.csv'
+all_data_path = r'F:\Big_MET_data\umap_and_morph.csv'
 all_data = pd.read_csv(all_data_path)
-all_data = all_data[all_data[cluster_we_want] == 1]
+#all_data = all_data[all_data[cluster_we_want] == 1]
 
-umap_pos = all_data[pos_cols].to_numpy()
+umap_pos = all_data[all_cols].to_numpy()
 rest_volt = all_data['mean_resting_volt'].to_numpy()
 umap_pos = norm_col(umap_pos)
 rest_volt = norm_col(rest_volt)
@@ -59,9 +74,9 @@ print(f'Current device: {device}')
 
 # Initialize Network
 #yes there is a better way to do this, no I aparently don't know how to do it
-hid_size = 128
+hid_size = 256
 net = nn.Sequential(
-    nn.Linear(len(pos_cols), hid_size),
+    nn.Linear(len(all_cols), hid_size),
     nn.Tanh(),
 	nn.Dropout(0.2),
     
@@ -72,13 +87,13 @@ net = nn.Sequential(
     nn.Linear(hid_size, hid_size),
     nn.Tanh(),
 	nn.Dropout(0.2),
-				    
+						    
     nn.Linear(hid_size, 1)
 ).to(device)
 
 criterion = nn.L1Loss()
 optimizer = torch.optim.Adam(net.parameters(), lr=3e-4, betas=(0.9, 0.999))
-num_epochs = 2400  
+num_epochs = 500 
 loss_hist = []
 test_acc_hist = []
 counter = 0

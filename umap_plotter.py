@@ -121,15 +121,19 @@ filt_meta_data_df['ephys_path'] = correct_eses_paths
 bin_cat_cols = ['hemisphere', 'biological_sex']
 decode_meta_data_df = pd.get_dummies(filt_meta_data_df, columns = bin_cat_cols, drop_first=True)
 
-num_clusters = 11
-embed_dim = 10
+num_clusters = 12
+embed_dim = 15
+my_type_cols = []
+for i in range(num_clusters):
+	my_type_cols.append(f'just_my_type_{i}')
 
 metadata = pd.read_csv(meta_data_path)
 gene_data = pd.read_csv(counts_path, index_col=0)
 gene_names = list(gene_data.index)
 gene_data_numpy = gene_data.to_numpy()
 gene_std = np.std(gene_data_numpy, axis = 1)
-thresh = np.sort(gene_std)[-500] #takes the 500 highest std genes?
+num_genes_evaled = 250
+thresh = np.sort(gene_std)[-num_genes_evaled]
 genes_over_thresh_bin = gene_std > thresh
 genes_over_thresh = np.where(genes_over_thresh_bin)[0]
 metadata = pd.read_csv(meta_data_path)
@@ -142,7 +146,7 @@ print(indexes)
 marker_genes_for_umap = gene_names#pd.read_csv("select_markers.csv", index_col=0)
 
 embedding = umap.UMAP(n_components=embed_dim, n_neighbors=25).fit_transform(
-    np.log2(gene_data[decode_meta_data_df['transcriptomics_sample_id']].loc[high_variance_genes+ion_channel_genes].values.T + 1)
+    np.log2(gene_data[decode_meta_data_df['transcriptomics_sample_id']].loc[high_variance_genes].values.T + 1)
 )
 
 embedding = np.asarray(embedding)
@@ -178,7 +182,7 @@ decode_meta_data_df = pd.get_dummies(decode_meta_data_df, columns = class_cal_co
 decode_meta_data_df.index = range(decode_meta_data_df.shape[0]) #renames the rows just numerically
 
 #we don't like true and false, we want binary
-to_be_int = ['hemisphere_right', 'biological_sex_M', 'structure_VISa5', 'structure_VISa6a', 'structure_VISal1', 'structure_VISal2/3', 'structure_VISal4', 'structure_VISal5', 'structure_VISal6a', 'structure_VISam2/3', 'structure_VISam4', 'structure_VISam5', 'structure_VISam6a', 'structure_VISl1', 'structure_VISl2/3', 'structure_VISl4', 'structure_VISl5', 'structure_VISl6a', 'structure_VISl6b', 'structure_VISli1', 'structure_VISli2/3', 'structure_VISli4', 'structure_VISli5', 'structure_VISli6a', 'structure_VISli6b', 'structure_VISp', 'structure_VISp1', 'structure_VISp2/3', 'structure_VISp4', 'structure_VISp5', 'structure_VISp6a', 'structure_VISp6b', 'structure_VISpl2/3', 'structure_VISpl4', 'structure_VISpl5', 'structure_VISpl6a', 'structure_VISpm1', 'structure_VISpm2/3', 'structure_VISpm4', 'structure_VISpm5', 'structure_VISpm6a', 'structure_VISpor1', 'structure_VISpor2/3', 'structure_VISpor4', 'structure_VISpor5', 'structure_VISpor6a', 'structure_VISpor6b', 'structure_VISrl2/3', 'structure_VISrl4', 'structure_VISrl5', 'structure_VISrl6a', 'just_my_type_0', 'just_my_type_1', 'just_my_type_2', 'just_my_type_3', 'just_my_type_4', 'just_my_type_5', 'just_my_type_6', 'just_my_type_7', 'just_my_type_8', 'just_my_type_9', 'just_my_type_10']
+to_be_int = ['hemisphere_right', 'biological_sex_M', 'structure_VISa5', 'structure_VISa6a', 'structure_VISal1', 'structure_VISal2/3', 'structure_VISal4', 'structure_VISal5', 'structure_VISal6a', 'structure_VISam2/3', 'structure_VISam4', 'structure_VISam5', 'structure_VISam6a', 'structure_VISl1', 'structure_VISl2/3', 'structure_VISl4', 'structure_VISl5', 'structure_VISl6a', 'structure_VISl6b', 'structure_VISli1', 'structure_VISli2/3', 'structure_VISli4', 'structure_VISli5', 'structure_VISli6a', 'structure_VISli6b', 'structure_VISp', 'structure_VISp1', 'structure_VISp2/3', 'structure_VISp4', 'structure_VISp5', 'structure_VISp6a', 'structure_VISp6b', 'structure_VISpl2/3', 'structure_VISpl4', 'structure_VISpl5', 'structure_VISpl6a', 'structure_VISpm1', 'structure_VISpm2/3', 'structure_VISpm4', 'structure_VISpm5', 'structure_VISpm6a', 'structure_VISpor1', 'structure_VISpor2/3', 'structure_VISpor4', 'structure_VISpor5', 'structure_VISpor6a', 'structure_VISpor6b', 'structure_VISrl2/3', 'structure_VISrl4', 'structure_VISrl5', 'structure_VISrl6a'] + my_type_cols
 decode_meta_data_df[to_be_int] = decode_meta_data_df[to_be_int].astype(int)
 
 #gives a list of columns where there just aren't enough samples imo
@@ -247,6 +251,7 @@ for i in range(num_clusters):
 	bottom_percentile = np.percentile(mean_output_feature, 10)
 	top_percentile = np.percentile(mean_output_feature, 90)
 	fig = plt.figure()
+	plt.title(cluster)
 	ax = fig.add_subplot(projection='3d')
 	ax.scatter3D(subset_df['0_embed_pos'], subset_df['1_embed_pos'], subset_df['2_embed_pos'],
 				 c=mean_output_feature, vmin = bottom_percentile,
