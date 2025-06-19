@@ -29,8 +29,9 @@ def list_all_files(root_folder):
 
 def get_n_colors(n):
 
-	colors = cm.get_cmap('hsv', n)
-	return [colors(i)[:3] for i in range(n)]  # Remove alpha
+	colors = cm.get_cmap('hsv', n+1)
+	return [colors(i)[:3] for i in range(1, n+1)]  # Remove alpha
+
 
 def norm_col(array):
 	min_by_col = np.min(array, axis = 0) 
@@ -121,8 +122,8 @@ filt_meta_data_df['ephys_path'] = correct_eses_paths
 bin_cat_cols = ['hemisphere', 'biological_sex']
 decode_meta_data_df = pd.get_dummies(filt_meta_data_df, columns = bin_cat_cols, drop_first=True)
 
-num_clusters = 12
-embed_dim = 15
+num_clusters = 3
+embed_dim = 3
 my_type_cols = []
 for i in range(num_clusters):
 	my_type_cols.append(f'just_my_type_{i}')
@@ -132,7 +133,7 @@ gene_data = pd.read_csv(counts_path, index_col=0)
 gene_names = list(gene_data.index)
 gene_data_numpy = gene_data.to_numpy()
 gene_std = np.std(gene_data_numpy, axis = 1)
-num_genes_evaled = 250
+num_genes_evaled = 500
 thresh = np.sort(gene_std)[-num_genes_evaled]
 genes_over_thresh_bin = gene_std > thresh
 genes_over_thresh = np.where(genes_over_thresh_bin)[0]
@@ -146,7 +147,7 @@ print(indexes)
 marker_genes_for_umap = gene_names#pd.read_csv("select_markers.csv", index_col=0)
 
 embedding = umap.UMAP(n_components=embed_dim, n_neighbors=25).fit_transform(
-    np.log2(gene_data[decode_meta_data_df['transcriptomics_sample_id']].loc[high_variance_genes].values.T + 1)
+    np.log2(gene_data[decode_meta_data_df['transcriptomics_sample_id']].loc[high_variance_genes + ion_channel_genes].values.T + 1)
 )
 
 embedding = np.asarray(embedding)
@@ -178,6 +179,8 @@ for k in range(embed_dim):
 	decode_meta_data_df[f'{k}_embed_pos'] = embedding[:, k]
 	
 class_cal_cols = ['structure', 'just_my_type']
+for col in class_cal_cols:
+    decode_meta_data_df[f'{col}_original'] = decode_meta_data_df[col]
 decode_meta_data_df = pd.get_dummies(decode_meta_data_df, columns = class_cal_cols)
 decode_meta_data_df.index = range(decode_meta_data_df.shape[0]) #renames the rows just numerically
 
