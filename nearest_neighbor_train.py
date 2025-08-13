@@ -170,8 +170,10 @@ for i in range(num_repeats):
 	neigh.fit(train_all_gene_expressions, train_resting_potential)
 	
 	predicted_resting_potential = neigh.predict((test_all_gene_expressions))
-	#plt.scatter(test_resting_potential, predicted_resting_potential)
-	#plt.show()
+	plt.scatter(test_resting_potential, predicted_resting_potential)
+	plt.xlabel('true resting potential')
+	plt.ylabel('predicted resting potential')
+	plt.show()
 
 	mean_r2 += r2_score(test_resting_potential, predicted_resting_potential)/num_repeats
 	
