@@ -111,7 +111,7 @@ for data_idx in range(len(metadata['cell_specimen_id'].to_list())):
 		transcriptomics_sample_id = metadata['transcriptomics_sample_id'].loc[data_idx]
 		
 		this_cell_ephys = pd.read_csv(f'{derived_ephys_path}\{cell_id}.csv')
-		gene_data.loc['resting_potential', transcriptomics_sample_id] = np.mean(this_cell_ephys['steady_state_voltage'].to_numpy())
+		gene_data.loc['resting_potential', transcriptomics_sample_id] = np.mean(this_cell_ephys['AP_width'].to_numpy())
 		cells_with_ephys_idxs.append(data_idx)
 		
 	except:
@@ -145,7 +145,7 @@ for cell_type in range(num_clusters):
 	
 	all_gene_vector = []
 	
-	for gene_of_interest in high_variance_genes:
+	for gene_of_interest in ion_channel_genes:
 
 		ion_channel_gene_idx = gene_names.index(gene_of_interest)
 		gene_expression_of_cluster = np.median(np.log2(gene_data.iloc[ion_channel_gene_idx, this_cell_type_idxs].values + 1))
