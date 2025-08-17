@@ -18,8 +18,30 @@ def norm_col(array):
 	max_by_col = np.max(array, axis = 0)
 	return np.divide(array, max_by_col)
 
-data_path = r'D:\Neuro_Sci\morph_ephys_trans_stuff\even_more_dual_stim_proxy_synth_data.csv'
-cell_feat = ['CaT_g', 'CaS_g', 'A_g', 'KCa_g', 'Kd_g', 'H_g', 'Leak_g', 'area', 'cap']
+data_path = r'D:\Neuro_Sci\morph_ephys_trans_stuff\multi_stim_synth_data.csv'
+cell_feat = ['Na_g', 'CaT_g', 'CaS_g', 'A_g', 'KCa_g', 'Kd_g', 'H_g', 'Leak_g', 'area', 'cap']
+currents_to_test = [-0.1, -0.05, 0.05, 0.1, 0.15]
+pos_ephys_properties = ['AHP_depth', 'AP_amplitude_from_voltagebase',
+				 'AP_width', 'mean_frequency', 'steady_state_voltage_stimend',
+				 'time_to_first_spike', 'voltage_base',
+				 'AHP1_depth_from_peak', 'AHP2_depth_from_peak', 'AP_amplitude', 
+			     'AP_peak_downstroke', 'AP_peak_upstroke', 'AP_rise_rate_change',
+			     'decay_time_constant_after_stim', 'time_constant', 
+			     'activation_time_constant', 'deactivation_time_constant', 'inactivation_time_constant']
+neg_ephys_properties = ['sag_ratio1', 'sag_time_constant', 'steady_state_voltage_stimend']
+
+ephys_feat = []
+for current in currents_to_test:
+	ephys_list = pos_ephys_properties
+	if current < 0:
+		ephys_list = neg_ephys_properties
+		
+	for thing in ephys_list:
+		thing_name = f'{current}_{thing}'
+		ephys_feat.append(thing_name)
+
+
+'''
 ephys_feat = ['sag_ratio1', 'sag_time_constant', 
 			  'AHP_depth', 'AP_amplitude_from_voltagebase',
 			  'AP_width', 'mean_frequency', 
@@ -29,7 +51,9 @@ ephys_feat = ['sag_ratio1', 'sag_time_constant',
 			  'decay_time_constant_after_stim', 'time_constant', 
 			  'activation_time_constant', 'deactivation_time_constant', 'inactivation_time_constant',
 			  'pos_steady_state_voltage_stimend', 'neg_steady_state_voltage_stimend']
-input_features = cell_feat + ephys_feat
+'''
+
+input_features = ['area', 'cap'] + ephys_feat
 output_feature = 'steady_state_voltage'
 output_feature = 'Na_g'
 
@@ -68,7 +92,7 @@ print(f'Current device: {device}')
 
 # Initialize Network
 #yes there is a better way to do this, no I aparently don't know how to do it
-hid_size = 128
+hid_size = 256
 drop_frac = 0.2
 net = nn.Sequential(
     nn.Linear(len(input_features), hid_size),
@@ -92,7 +116,7 @@ net = nn.Sequential(
 
 criterion = nn.L1Loss()
 optimizer = torch.optim.Adam(net.parameters(), lr=3e-4, betas=(0.9, 0.999))
-num_epochs = 700
+num_epochs = 300
 loss_hist = []
 test_acc_hist = []
 counter = 0
