@@ -11,10 +11,14 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 catalogue = A.allen_catalogue()
-print(list(catalogue.keys()))
+#print(list(catalogue.keys()))
 
-morph_path = r'/mnt/f/arbor_ubuntu/other_example_morphology.swc'
-fit_params_path = r'/mnt/f/arbor_ubuntu/example_param_json.json'
+folder = 'lee_lj'
+cell_name = 'Het-mPFC-20X-4-A.CNG'
+morph_path = r'/mnt/f/arbor_ubuntu/neuronal_model_491766131/reconstruction.swc'
+morph_path = rf'/mnt/f/arbor_ubuntu/10k_mouse_pyr_morph/{folder}/CNG version/{cell_name}.swc'
+fit_params_path = r'/mnt/f/arbor_ubuntu/neuronal_model_491766131/fit_parameters.json'
+fit_params_path = r'/mnt/f/arbor_ubuntu/10k_randomized_jsons/random_genome_91.json'
 
 labels = A.label_dict().add_swc_tags()
 labels["midpoint"] = "(location 0 0.5)"
@@ -38,6 +42,8 @@ def load_allen_fit(fit):
 		region = block["section"]
 		name = block["name"]
 		value = float(block["value"])
+
+		print(mech, region, name, value)
 		if name.endswith("_" + mech):
 			name = name[: -(len(mech) + 1)]
 		elif mech == "pas":
@@ -56,6 +62,7 @@ def load_allen_fit(fit):
 		else:
 			raise Exception(f"Illegal combination {mech} {name}")
 		mechs[(region, mech)][name] = value
+
 
 	regs = list(param.items())
 	mechs = [(r, m, vs) for (r, m), vs in mechs.items()]
@@ -96,19 +103,15 @@ def make_cell(swc, fit):
 	decor.set_property(
 		tempK=dflt.temp,
 		Vm=dflt.Vm,
-		cm=dflt.cm,
+		cm=1 * U.uF/U.cm2,
 		rL=dflt.rL,
 	)
 
 	# (6) override regional electro-physiology parameters
 	for region, vs in regions:
-		decor.paint(
-			f'"{region}"',
-			tempK=vs.temp,
-			Vm=vs.Vm,
-			cm=vs.cm,
-			rL=vs.rL,
-		)
+
+		decor.paint(f'"{region}"', rL=vs.rL)
+		decor.paint(f'"{region}"', cm=vs.cm)
 
 	# (7) set reversal potentials
 	for region, ion, e in ions:
@@ -122,18 +125,21 @@ def make_cell(swc, fit):
 		sp = "/"
 		for k, v in values.items():
 			if mech == "pas" and k == "e":
+				#print(region, mech, values)
 				nm = f"{nm}{sp}{k}={v}"
 				sp = ","
 			else:
 				vs[k] = v
 		decor.paint(f'"{region}"', A.density(A.mechanism(nm, vs)))
-
+		
 	# (9) attach stimulus and detector
-	decor.place('"midpoint"', A.iclamp(0.2 * U.s, 1 * U.s, 150 * U.pA), "ic")
-	decor.place('"midpoint"', A.threshold_detector(-40 * U.mV), "sd")
+	decor.place('"midpoint"', A.iclamp(0.2 * U.s, 1 * U.s, 210 * U.pA), "ic")
+	decor.place('"midpoint"', A.threshold_detector(-20 * U.mV), "sd")
 
 	# (10) discretisation strategy: max compartment length
 	cvp = A.cv_policy_max_extent(20)
+
+	#print(decor.paintings())	
 
 	# (11) Create cell
 	return A.cable_cell(morphology, decor, labels, cvp), offset
@@ -158,8 +164,10 @@ df = pd.DataFrame({
 })
 
 sns.relplot(data=df, kind="line", x="t/ms", y="U/mV", hue="Simulator", errorbar=None)
-plt.scatter(model.spikes, [-40] * len(model.spikes), color=sns.color_palette()[2], zorder=20)
+plt.scatter(model.spikes, [-20] * len(model.spikes), color=sns.color_palette()[2], zorder=20)
 plt.savefig(r'/mnt/f/arbor_ubuntu/single_cell_allen_result.pdf')
+
+df.to_csv(r'/mnt/f/arbor_ubuntu/test.csv')
 
 print('gaming-cif')
 
