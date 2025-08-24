@@ -14,7 +14,63 @@ from neuron_morphology.features.intrinsic import max_branch_order, num_tips, num
 from neuron_morphology.features.size import max_euclidean_distance, mean_diameter, total_length, total_surface_area, total_volume
 from neuron_morphology.features.path import max_path_distance
 
+def cell_prop_stuff(json_path):
+	# Load JSON
+	with open(json_path, 'r') as f:
+		data = json.load(f)
 
+	# Extract soma_ra from "passive"
+	if "passive" in data and len(data["passive"]) > 0:
+		soma_ra = data["passive"][0].get("ra", None)
+		if soma_ra is not None:
+			print(f"soma_ra, {soma_ra}")
+
+	# Extract from "genome"
+	if "genome" in data:
+		for entry in data["genome"]:
+			section = entry.get("section", "unknown")
+			value = entry.get("value", None)
+			print(f"{section}, {value}")
+
+def efel_stuff(ephys_df, append_dict, ephys_features, prefix, start_time, end_time, crop_end):
+	subset_df = ephys_df[(ephys_df['t/ms'] >= start_time) & (ephys_df['t/ms'] <= crop_end)].reset_index(drop=True)
+	trace1 = {}
+
+	# Set the 'T' (=time) key of the trace
+	trace1['T'] = subset_df['t/ms']
+
+	# Set the 'V' (=voltage) key of the trace
+	trace1['V'] = subset_df['U/mV']
+
+	# Set the 'stim_start' (time at which a stimulus starts, in ms)
+	# key of the trace
+	# Warning: this need to be a list (with one element)
+	trace1['stim_start'] = [start_time]
+
+	# Set the 'stim_end' (time at which a stimulus end) key of the trace
+	# Warning: this need to be a list (with one element)
+	trace1['stim_end'] = [end_time]
+
+	# Multiple traces can be passed to the eFEL at the same time, so the
+	# argument should be a list
+	traces = [trace1]
+
+	# set the threshold for spike detection to -20 mV
+	efel.set_setting('Threshold', -20)
+
+	# Now we pass 'traces' to the efel and ask it to calculate the feature
+	# values
+	traces_results = efel.get_feature_values(traces, ephys_features)
+	
+	# The return value is a list of trace_results, every trace_results
+	# corresponds to one trace in the 'traces' list above (in same order)
+	for trace_results in traces_results:
+		# trace_result is a dictionary, with as keys the requested features
+		for feature_name, feature_values in trace_results.items():
+			true_name = f'{prefix}_{feature_name}'
+			true_value = np.mean(feature_values)
+			append_dict[true_name] = true_value
+	return append_dict
 
 def my_feat_pics(local_test_data):
 
@@ -61,8 +117,10 @@ def list_all_files(root_folder):
 def main():
 	
 	save_path = r"F:\arbor_ubuntu"
-	morph_path = r"F:\arbor_ubuntu\10k_mouse_pyr_morph"
-	dir_list = os.listdir(morph_path)
+	morph_folder = r"F:\arbor_ubuntu\10k_mouse_pyr_morph"
+	ephys_folder = r"F:\arbor_ubuntu\10k_ephys"
+	cell_prop_folder = r"F:\arbor_ubuntu\10k_randomized_jsons"
+	dir_list = os.listdir(morph_folder)
 	
 	morph_features = [
 	    'mean_diameter',
@@ -79,6 +137,7 @@ def main():
 		]
 	
 	cell_props = [
+		#section_name
 		'soma_Ra',
 		'soma_g_pas',
 		'soma_e_pas',
@@ -123,13 +182,13 @@ def main():
 		'dend_gbar_Ih'
 		]
 
-	pos_ephys_properties = ['AHP_depth', 'AP_amplitude_from_voltagebase',
-					 'AP_width', 'mean_frequency', 'steady_state_voltage_stimend',
-					 'time_to_first_spike', 'voltage_base',
+	pos_ephys_properties = ['steady_state_voltage', 'steady_state_voltage_stimend',
+					 'time_to_first_spike', 'time_to_last_spike',
+					 'spike_count', 'AP_height', 'AP_width',
+					 'AHP_depth', 'AP_amplitude_from_voltagebase', 'mean_frequency', 'voltage_base', 
 					 'AHP1_depth_from_peak', 'AHP2_depth_from_peak', 'AP_amplitude', 
-				     'AP_peak_downstroke', 'AP_peak_upstroke', 'AP_rise_rate_change',
-				     'decay_time_constant_after_stim', 'time_constant', 
-				     'activation_time_constant', 'deactivation_time_constant', 'inactivation_time_constant']
+					 'AP_peak_downstroke', 'AP_peak_upstroke', 'AP_rise_rate_change',
+					 'decay_time_constant_after_stim', 'time_constant']
 	
 	neg_ephys_properties = ['sag_ratio1', 'sag_time_constant', 'steady_state_voltage_stimend']
 	
@@ -149,26 +208,32 @@ def main():
 	
 	total_count = 0
 	for folder in dir_list:
-		folder_path = f'{morph_path}\{folder}\CNG version'
+		folder_path = f'{morph_folder}\{folder}\CNG version'
 		file_list = os.listdir(folder_path)
 		for file in file_list:
 			try:
-				test_data = Data(morphology_from_swc(f'{folder_path}\{file}'))
-				#morph = morphology_from_swc(r'F:\arbor_ubuntu\swc_test_files\example_morphology.swc')
-				#test_data = Data(morph)
-				features = my_feat_pics(test_data)
 				new_row_dict = {}
 				new_row_dict['folder'] = folder
 				new_row_dict['file_name'] = file
 				new_row_dict['count'] = total_count
+				
+				test_data = Data(morphology_from_swc(f'{folder_path}\{file}'))
+				features = my_feat_pics(test_data)
 				for key, val in features.items():
 					new_row_dict[key] = [val]
+
+				ephys_path = f"{ephys_folder}\{folder}_{file.split('.')[-3]}_{total_count}.csv"
+				raw_ephys_trace = pd.read_csv(ephys_path)
+				new_row_dict = efel_stuff(raw_ephys_trace, new_row_dict, neg_ephys_properties, -100, 200, 1000, 1200)
+				new_row_dict = efel_stuff(raw_ephys_trace, new_row_dict, pos_ephys_properties, 100, 1200, 2000, 2200)
+				new_row_dict = efel_stuff(raw_ephys_trace, new_row_dict, pos_ephys_properties, 200, 2200, 3000, 3200)
+				
 				new_row_df = pd.DataFrame(new_row_dict)
 				morph_features_df = pd.concat([morph_features_df, new_row_df], ignore_index=True)
 			except:
 				pass
 			total_count += 1
-		if total_count > 1000:
+		if total_count > 110:
 			break
 
 	morph_features_df.to_csv(f'{save_path}//morphology_features.csv')
