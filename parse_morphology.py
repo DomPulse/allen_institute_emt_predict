@@ -14,23 +14,52 @@ from neuron_morphology.features.intrinsic import max_branch_order, num_tips, num
 from neuron_morphology.features.size import max_euclidean_distance, mean_diameter, total_length, total_surface_area, total_volume
 from neuron_morphology.features.path import max_path_distance
 
-def cell_prop_stuff(json_path):
-	# Load JSON
+#i'll be real, chatGPT wrote the next 2 functions, i don't care enough about parsing jsons to do that
+def _maybe_float(x):
+	try:
+		return float(x)
+	except (TypeError, ValueError):
+		return x
+
+def cell_prop_stuff(json_path, append_dict):
+	"""
+	Parse an Allen/BBP-style json and add:
+	  - passive soma Ra  -> key: 'soma_ra'
+	  - genome params	-> key: f"{section}_{name}" (e.g., 'soma_g_pas')
+
+	Parameters
+	----------
+	json_path : str
+		Path to the JSON file.
+	append_dict : dict
+		Dict to populate (mutated in-place and also returned).
+
+	Returns
+	-------
+	dict
+		The same dict with added keys/values.
+	"""
 	with open(json_path, 'r') as f:
 		data = json.load(f)
-
-	# Extract soma_ra from "passive"
-	if "passive" in data and len(data["passive"]) > 0:
+	
+	# soma_ra from "passive"
+	if "passive" in data and data["passive"]:
 		soma_ra = data["passive"][0].get("ra", None)
 		if soma_ra is not None:
-			print(f"soma_ra, {soma_ra}")
+			append_dict['soma_ra'] = _maybe_float(soma_ra)
 
-	# Extract from "genome"
-	if "genome" in data:
-		for entry in data["genome"]:
-			section = entry.get("section", "unknown")
-			value = entry.get("value", None)
-			print(f"{section}, {value}")
+	# genome: section + name
+	for entry in data.get("genome", []):
+		section = entry.get("section", "unknown")
+		name = entry.get("name", "unknown")
+		value = entry.get("value", None)
+
+		key = f"{section}_{name}"
+		# if a duplicate key somehow appears, last one wins; customize if needed
+		append_dict[key] = _maybe_float(value)
+		print(key, value)
+
+	return append_dict
 
 def efel_stuff(ephys_df, append_dict, ephys_features, prefix, start_time, end_time, crop_end):
 	subset_df = ephys_df[(ephys_df['t/ms'] >= start_time) & (ephys_df['t/ms'] <= crop_end)].reset_index(drop=True)
@@ -228,15 +257,17 @@ def main():
 				new_row_dict = efel_stuff(raw_ephys_trace, new_row_dict, pos_ephys_properties, 100, 1200, 2000, 2200)
 				new_row_dict = efel_stuff(raw_ephys_trace, new_row_dict, pos_ephys_properties, 200, 2200, 3000, 3200)
 				
+				silly_buffer = 'random_genome' #no clue why this is necessary
+				json_genome_path = f"{cell_prop_folder}\{silly_buffer}_{total_count}.json"
+				new_row_dict = cell_prop_stuff(json_genome_path, new_row_dict)
+				
 				new_row_df = pd.DataFrame(new_row_dict)
 				morph_features_df = pd.concat([morph_features_df, new_row_df], ignore_index=True)
 			except:
 				pass
 			total_count += 1
-		if total_count > 110:
-			break
 
-	morph_features_df.to_csv(f'{save_path}//morphology_features.csv')
+	morph_features_df.to_csv(f'{save_path}//all_arbor_synth_data.csv')
 	del morph_features_df
 	gc.collect()
 		
