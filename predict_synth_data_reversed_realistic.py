@@ -79,6 +79,48 @@ cell_props = [
 	'dend_gbar_Ih'
 	]
 
+ming = [
+	#section_name
+	'soma_Ra',
+	'soma_g_pas',
+	'soma_e_pas',
+	'axon_g_pas',
+	'axon_e_pas',
+	'apic_g_pas',
+	'apic_e_pas',
+	'dend_g_pas',
+	'dend_e_pas',
+	'soma_cm',
+	'axon_cm',
+	'axon_Ra',
+	'apic_cm',
+	'apic_Ra',
+	'dend_cm',
+	'dend_Ra',
+	'axon_gbar_K_T',
+	'axon_gbar_Kd',
+	'axon_gbar_Kv2like',
+	'axon_gbar_Kv3_1',
+	'axon_gbar_SK',
+	'axon_gbar_Ca_HVA',
+	'axon_gbar_Ca_LVA',
+	'axon_gamma_CaDynamics',
+	'axon_decay_CaDynamics',
+	'soma_gbar_SK',
+	'soma_gbar_Kv3_1',
+	'soma_gbar_Ca_HVA',
+	'soma_gbar_Ca_LVA',
+	'soma_gamma_CaDynamics',
+	'soma_decay_CaDynamics',
+	'soma_gbar_Ih',
+	'apic_gbar_Kv3_1',
+	'apic_gbar_Im_v2',
+	'apic_gbar_Ih',
+	'dend_gbar_Kv3_1',
+	'dend_gbar_Im_v2',
+	'dend_gbar_Ih'
+	]
+
 pos_ephys_properties = ['steady_state_voltage', 'steady_state_voltage_stimend',
 				 'time_to_first_spike', 'time_to_last_spike',
 				 'spike_count', 'AP_height', 'AP_width',
@@ -101,8 +143,10 @@ for c in currents_to_test:
 		ephys_feat.append(name)
 
 
-input_features = ephys_feat
-output_feature = 'soma_cm'
+output_feature = 'soma_gbar_NaV'
+
+input_features = ephys_feat + ming #[x for x in cell_props if x != output_feature]
+
 #output_feature = 'soma_Ra'
 
 df = pd.read_csv(data_path).dropna()
@@ -158,7 +202,7 @@ net = nn.Sequential(
 
 criterion = nn.L1Loss()
 optimizer = torch.optim.Adam(net.parameters(), lr=3e-4, betas=(0.9, 0.999))
-num_epochs = 500
+num_epochs = 300
 loss_hist = []
 test_acc_hist = []
 counter = 0
