@@ -18,7 +18,7 @@ def norm_col(array):
 	max_by_col = np.max(array, axis = 0)
 	return np.divide(array, max_by_col)
 
-data_path = r'F:\arbor_ubuntu\synth_data_one_morph_more_stims_v2.csv'
+data_path = r'F:\arbor_ubuntu\synth_data_one_morph_more_stims_v2_normalized_filtered.csv'
 #data_path = r'F:\arbor_ubuntu\all_arbor_synth_data_again.csv'
 morph_features = [
     'mean_diameter',
@@ -115,6 +115,7 @@ possible_predicts = [
 	'apic_gbar_Im_v2',
 	]
 
+
 pos_ephys_properties = ['steady_state_voltage', 'steady_state_voltage_stimend',
 				 'time_to_first_spike', 'time_to_last_spike',
 				 'spike_count', 'AP_height', 'AP_width',
@@ -146,21 +147,11 @@ output_feature = 'soma_gbar_NaV'
 
 for output_feature in possible_predicts:
 
-	input_features = ephys_feat + [x for x in possible_predicts if x != output_feature]
+	input_features = ephys_feat #+ [x for x in possible_predicts if x != output_feature]
 	
 	input_data = df[input_features].to_numpy()
 	output_data = df[output_feature].to_numpy()
 	
-	nan_mask = np.where(~np.isnan(output_data))[0]
-	input_data = input_data[nan_mask]
-	output_data = output_data[nan_mask]
-	
-	bottom_percentile = np.percentile(output_data, 10)
-	top_percentile = np.percentile(output_data, 90)
-	mask = np.where((output_data > bottom_percentile)*(output_data < top_percentile))[0]
-	
-	input_data = norm_col(input_data[mask])
-	output_data = norm_col(output_data[mask])
 	plt.hist(output_data)
 	plt.show()
 	
@@ -265,7 +256,7 @@ for output_feature in possible_predicts:
 			all_outs += list(outputs)
 			all_labels += list(labels)
 		
-	plt.title(f'{output_feature} prediction')
+	plt.title(f'{output_feature} prediction just train on ephys')
 	plt.xlim(0, 1)
 	plt.ylim(0, 1)
 	plt.scatter(all_outs, all_labels)
@@ -278,5 +269,5 @@ for output_feature in possible_predicts:
 	print(output_feature, " R² on test:", test_r2)
 	#print("MSE on test:", mean_squared_error(all_labels, all_outs))
 	
-	torch.save(net.state_dict(), f"F:\\arbor_ubuntu\\synth_data_single_morph_predictors\\subset\\{output_feature}.pth")
+	#torch.save(net.state_dict(), f"F:\\arbor_ubuntu\\synth_data_single_morph_predictors\\subset\\{output_feature}.pth")
 	

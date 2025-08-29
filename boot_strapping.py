@@ -18,7 +18,7 @@ def norm_col(array):
 	max_by_col = np.max(array, axis = 0)
 	return np.divide(array, max_by_col)
 
-data_path = r'F:\arbor_ubuntu\synth_data_one_morph_more_stims_v2.csv'
+data_path = r'F:\arbor_ubuntu\synth_data_one_morph_more_stims_v2_normalized_filtered.csv'
 #data_path = r'F:\arbor_ubuntu\all_arbor_synth_data_again.csv'
 morph_features = [
 	'mean_diameter',
@@ -78,7 +78,6 @@ for c in currents_to_test:
 
 
 df = pd.read_csv(data_path).dropna()
-df = df[df['200_spike_count'] > 0]
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -98,28 +97,54 @@ net = nn.Sequential(
 	nn.Linear(hid_size, 1)
 ).to(device)
 
-test_idx = 1
-true_output = df.iloc[test_idx].loc[possible_predicts].to_numpy(dtype = np.float64)
-predicted_output = np.random.rand(len(possible_predicts))
-fixed_input_ephys_input = df.iloc[test_idx].loc[ephys_feat].to_numpy(dtype = np.float64)
-
-fixed_input_ephys_input = np.random.rand(len(ephys_feat)) 
-#this will be taken it out, i need to save and train on normalized data
-
-net.eval()
-num_iters = 10
-for i in range(num_iters):
-	print(predicted_output)
-	for index, output_feature in enumerate(possible_predicts):
-		state_dict = torch.load(f"F:\\arbor_ubuntu\\synth_data_single_morph_predictors\\subset\\{output_feature}.pth", map_location=device)
-		net.load_state_dict(state_dict)
-		all_except_testing = np.delete(predicted_output, [index])
-		concat_input = np.concat((fixed_input_ephys_input, all_except_testing))
-		with torch.no_grad():
-			predicted_output[index] = np.clip(net(
-				torch.from_numpy(concat_input).float().unsqueeze(0).to(device)
-			).cpu().numpy().item(), 0, 1)
-
-for j, feature in enumerate(possible_predicts):
-	print(f'{feature}, true:{true_output[j]}, predicted:{predicted_output[j]}')
+feature_act_dict = {}
+for feature in possible_predicts:
+	bleh = f'{feature}_true'
+	blah = f'{feature}_predict'
+	feature_act_dict[bleh] = []
+	feature_act_dict[blah] = []
+	
+for test_idx in range(100):
+	#test_idx = 1
+	true_output = df.iloc[test_idx].loc[possible_predicts].to_numpy(dtype = np.float64)
+	predicted_output = np.random.rand(len(possible_predicts))
+	fixed_input_ephys_input = df.iloc[test_idx].loc[ephys_feat].to_numpy(dtype = np.float64)
+	
+	#fixed_input_ephys_input = np.random.rand(len(ephys_feat)) 
+	#this will be taken it out, i need to save and train on normalized data
+	
+	net.eval()
+	num_iters = 100
+	for i in range(num_iters):
+		#print(predicted_output)
+		for index, output_feature in enumerate(possible_predicts):
+			state_dict = torch.load(f"F:\\arbor_ubuntu\\synth_data_single_morph_predictors\\subset\\{output_feature}.pth", map_location=device)
+			net.load_state_dict(state_dict)
+			all_except_testing = np.delete(predicted_output, [index])
+			concat_input = np.concat((fixed_input_ephys_input, all_except_testing))
+			with torch.no_grad():
+				predicted_output[index] = np.clip(net(
+					torch.from_numpy(concat_input).float().unsqueeze(0).to(device)
+				).cpu().numpy().item(), 0, 1)
+	
+	print(test_idx)
+	for j, feature in enumerate(possible_predicts):
+		#print(f'{feature}, true:{true_output[j]}, predicted:{predicted_output[j]}')
+		bleh = f'{feature}_true'
+		blah = f'{feature}_predict'
+		feature_act_dict[bleh].append(true_output[j])
+		feature_act_dict[blah].append(predicted_output[j])
 		
+for feature in possible_predicts:
+	bleh = f'{feature}_true'
+	blah = f'{feature}_predict'
+
+	plt.show()
+	plt.xlim(0, 1)
+	plt.ylim(0, 1)
+	plt.scatter(feature_act_dict[blah], feature_act_dict[bleh])
+	test_r2 = r2_score(feature_act_dict[bleh], feature_act_dict[blah])
+	plt.title(f'{feature}: r^2 = {test_r2:.2f}')
+	plt.plot([0, 1], [0, 1], 'k--')
+	plt.xlabel('model prediction')
+	plt.ylabel('true value')
