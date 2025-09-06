@@ -1,0 +1,6 @@
+make sure all the things for the vectors are in the right indexes
+fix some values (or nearly) based on what can be predicted well from ephys
+see if there are any variables that monotonically decrease mse when approaching the correct value
+if yes, optimize those first
+related, see if there are any values where the average mse (of the resulting ephys vector) is minimized when a bunch of randomized cell property vector is set to the correct value
+optimize on different subsets of ephys seperately and then combine candidates via that
